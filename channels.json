@@ -1,0 +1,135 @@
+[
+  {
+    "id": "text-general",
+    "name": "general",
+    "type": "text",
+    "category": "General",
+    "description": "Canal general de chat SpecialDeliverySpeak"
+  },
+  {
+    "id": "c1-chat",
+    "name": "chat-campo-1",
+    "type": "text",
+    "category": "Campo 1",
+    "description": "Chat de texto y coordinación de Campo 1"
+  },
+  {
+    "id": "c1-party-1",
+    "name": "Party 1",
+    "type": "voice",
+    "category": "Campo 1",
+    "userLimit": 0
+  },
+  {
+    "id": "c1-party-2",
+    "name": "Party 2",
+    "type": "voice",
+    "category": "Campo 1",
+    "userLimit": 0
+  },
+  {
+    "id": "c1-party-3",
+    "name": "Party 3",
+    "type": "voice",
+    "category": "Campo 1",
+    "userLimit": 0
+  },
+  {
+    "id": "c1-party-4",
+    "name": "Party 4",
+    "type": "voice",
+    "category": "Campo 1",
+    "userLimit": 0
+  },
+  {
+    "id": "c1-party-5",
+    "name": "Party 5",
+    "type": "voice",
+    "category": "Campo 1",
+    "userLimit": 0
+  },
+  {
+    "id": "c1-party-6",
+    "name": "Party 6",
+    "type": "voice",
+    "category": "Campo 1",
+    "userLimit": 0
+  },
+  {
+    "id": "c1-party-7",
+    "name": "Party 7",
+    "type": "voice",
+    "category": "Campo 1",
+    "userLimit": 0
+  },
+  {
+    "id": "c1-party-8",
+    "name": "Party 8",
+    "type": "voice",
+    "category": "Campo 1",
+    "userLimit": 0
+  },
+  {
+    "id": "c2-chat",
+    "name": "chat-campo-2",
+    "type": "text",
+    "category": "Campo 2",
+    "description": "Chat de texto y coordinación de Campo 2"
+  },
+  {
+    "id": "c2-party-1",
+    "name": "Party 1",
+    "type": "voice",
+    "category": "Campo 2",
+    "userLimit": 0
+  },
+  {
+    "id": "c2-party-2",
+    "name": "Party 2",
+    "type": "voice",
+    "category": "Campo 2",
+    "userLimit": 0
+  },
+  {
+    "id": "c2-party-3",
+    "name": "Party 3",
+    "type": "voice",
+    "category": "Campo 2",
+    "userLimit": 0
+  },
+  {
+    "id": "c2-party-4",
+    "name": "Party 4",
+    "type": "voice",
+    "category": "Campo 2",
+    "userLimit": 0
+  },
+  {
+    "id": "c2-party-5",
+    "name": "Party 5",
+    "type": "voice",
+    "category": "Campo 2",
+    "userLimit": 0
+  },
+  {
+    "id": "c2-party-6",
+    "name": "Party 6",
+    "type": "voice",
+    "category": "Campo 2",
+    "userLimit": 0
+  },
+  {
+    "id": "c2-party-7",
+    "name": "Party 7",
+    "type": "voice",
+    "category": "Campo 2",
+    "userLimit": 0
+  },
+  {
+    "id": "c2-party-8",
+    "name": "Party 8",
+    "type": "voice",
+    "category": "Campo 2",
+    "userLimit": 0
+  }
+]

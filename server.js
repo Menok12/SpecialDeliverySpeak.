@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const { Server } = require('socket.io');
 
 const app = express();
@@ -19,21 +21,118 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Estado de canales iniciales
-let channels = [
-  { id: 'text-general', name: 'general', type: 'text', description: 'Canal general de SpecialDeliverySpeak' },
-  { id: 'text-memes', name: 'memes-y-clips', type: 'text', description: 'Comparte memes, música y clips' },
-  { id: 'voice-lounge', name: 'Sala de Charla', type: 'voice', userLimit: 0 },
-  { id: 'voice-gaming', name: 'Sala Gaming', type: 'voice', userLimit: 6 },
-  { id: 'voice-private', name: 'Entrega Especial / VIP', type: 'voice', userLimit: 4 }
+// Archivos de persistencia en disco
+const CHANNELS_FILE = path.join(__dirname, 'channels.json');
+const BANNED_FILE = path.join(__dirname, 'banned.json');
+const ACCOUNTS_FILE = path.join(__dirname, 'accounts.json');
+
+const DEFAULT_CHANNELS = [
+  { id: 'text-general', name: 'general', type: 'text', category: 'General', description: 'Canal general de chat SpecialDeliverySpeak' },
+  { id: 'c1-chat', name: 'chat-campo-1', type: 'text', category: 'Campo 1', description: 'Chat de texto y coordinación de Campo 1' },
+  { id: 'c1-party-1', name: 'Party 1', type: 'voice', category: 'Campo 1', userLimit: 0 },
+  { id: 'c1-party-2', name: 'Party 2', type: 'voice', category: 'Campo 1', userLimit: 0 },
+  { id: 'c1-party-3', name: 'Party 3', type: 'voice', category: 'Campo 1', userLimit: 0 },
+  { id: 'c1-party-4', name: 'Party 4', type: 'voice', category: 'Campo 1', userLimit: 0 },
+  { id: 'c1-party-5', name: 'Party 5', type: 'voice', category: 'Campo 1', userLimit: 0 },
+  { id: 'c1-party-6', name: 'Party 6', type: 'voice', category: 'Campo 1', userLimit: 0 },
+  { id: 'c1-party-7', name: 'Party 7', type: 'voice', category: 'Campo 1', userLimit: 0 },
+  { id: 'c1-party-8', name: 'Party 8', type: 'voice', category: 'Campo 1', userLimit: 0 },
+  { id: 'c2-chat', name: 'chat-campo-2', type: 'text', category: 'Campo 2', description: 'Chat de texto y coordinación de Campo 2' },
+  { id: 'c2-party-1', name: 'Party 1', type: 'voice', category: 'Campo 2', userLimit: 0 },
+  { id: 'c2-party-2', name: 'Party 2', type: 'voice', category: 'Campo 2', userLimit: 0 },
+  { id: 'c2-party-3', name: 'Party 3', type: 'voice', category: 'Campo 2', userLimit: 0 },
+  { id: 'c2-party-4', name: 'Party 4', type: 'voice', category: 'Campo 2', userLimit: 0 },
+  { id: 'c2-party-5', name: 'Party 5', type: 'voice', category: 'Campo 2', userLimit: 0 },
+  { id: 'c2-party-6', name: 'Party 6', type: 'voice', category: 'Campo 2', userLimit: 0 },
+  { id: 'c2-party-7', name: 'Party 7', type: 'voice', category: 'Campo 2', userLimit: 0 },
+  { id: 'c2-party-8', name: 'Party 8', type: 'voice', category: 'Campo 2', userLimit: 0 }
 ];
 
-// Mapa de socketId -> Usuario
-const users = new Map();
+function loadChannels() {
+  try {
+    if (fs.existsSync(CHANNELS_FILE)) {
+      const data = fs.readFileSync(CHANNELS_FILE, 'utf8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (err) {
+    console.error('[Error cargando canales]', err);
+  }
+  return [...DEFAULT_CHANNELS];
+}
 
-// Listas de usuarios y direcciones IP baneadas
-const bannedIPs = new Set();
-const bannedUsers = new Set();
+function saveChannels() {
+  try {
+    fs.writeFileSync(CHANNELS_FILE, JSON.stringify(channels, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[Error guardando canales]', err);
+  }
+}
+
+function loadBans() {
+  try {
+    if (fs.existsSync(BANNED_FILE)) {
+      const data = fs.readFileSync(BANNED_FILE, 'utf8');
+      const parsed = JSON.parse(data);
+      return {
+        ips: new Set(parsed.ips || []),
+        users: new Set(parsed.users || [])
+      };
+    }
+  } catch (e) {
+    console.error('[Error cargando baneos]', e);
+  }
+  return { ips: new Set(), users: new Set() };
+}
+
+function saveBans() {
+  try {
+    const data = {
+      ips: Array.from(bannedIPs),
+      users: Array.from(bannedUsers)
+    };
+    fs.writeFileSync(BANNED_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('[Error guardando baneos]', e);
+  }
+}
+
+// Persistencia de cuentas (username en minúsculas -> objeto de cuenta)
+function loadAccounts() {
+  try {
+    if (fs.existsSync(ACCOUNTS_FILE)) {
+      return JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('[Error cargando cuentas]', e);
+  }
+  return {};
+}
+
+function saveAccounts() {
+  try {
+    fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2), 'utf8');
+  } catch (e) {
+    console.error('[Error guardando cuentas]', e);
+  }
+}
+
+function hashPassword(pass) {
+  return crypto.createHash('sha256').update(pass + 'sds_salt_2026').digest('hex');
+}
+
+function generateToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+let channels = loadChannels();
+saveChannels();
+
+const { ips: bannedIPs, users: bannedUsers } = loadBans();
+let accounts = loadAccounts();
+
+// Mapa de socketId -> Usuario activo
+const users = new Map();
 
 // Historial de mensajes por canal
 const messages = {
@@ -91,27 +190,171 @@ function getClientIP(socket) {
   return socket.handshake.address || '';
 }
 
+// Función auxiliar para conectar e inicializar un usuario en el servidor
+function initializeSession(socket, userAccount) {
+  const user = {
+    id: socket.id,
+    username: userAccount.username,
+    avatar: userAccount.avatar || '📦',
+    color: userAccount.color || '#5865F2',
+    isAdmin: !!userAccount.isAdmin,
+    isMasterAdmin: !!userAccount.isMasterAdmin,
+    ip: getClientIP(socket),
+    currentVoiceChannel: null,
+    isMuted: false,
+    isDeafened: false,
+    isSpeaking: false
+  };
+
+  users.set(socket.id, user);
+  socket.user = user;
+
+  socket.emit('auth:success', {
+    user,
+    token: userAccount.token
+  });
+
+  socket.emit('init:state', {
+    user,
+    channels,
+    users: Array.from(users.values()),
+    voiceState: getAllVoiceState(),
+    messages
+  });
+
+  socket.broadcast.emit('user:joined', user);
+  console.log(`[Sesión Iniciada] ${user.username} (Admin=${user.isAdmin}, Master=${user.isMasterAdmin})`);
+}
+
 io.on('connection', (socket) => {
   const clientIP = getClientIP(socket);
 
-  // Verificar baneo por IP inmediatamente (ignorando loopback/localhost del host)
   if (clientIP && !isLoopbackIP(clientIP) && bannedIPs.has(clientIP)) {
-    console.log(`[Baneo Rechazado] Conexión rechazada por IP baneada: ${clientIP}`);
+    console.log(`[Baneo Rechazado] IP bloqueada: ${clientIP}`);
     socket.emit('user:banned_error', { reason: 'Has sido baneado de SpecialDeliverySpeak.' });
     return socket.disconnect(true);
   }
 
-  // 1. Registro de usuario
+  // ===================== SISTEMA DE CUENTAS Y AUTO-LOGIN =====================
+
+  // 1. Reanudar sesión automática mediante token de localStorage
+  socket.on('auth:verify_session', ({ token }) => {
+    if (!token) return socket.emit('auth:session_invalid');
+
+    // Buscar cuenta por token
+    let foundAccount = null;
+    for (const key in accounts) {
+      if (accounts[key].token === token) {
+        foundAccount = accounts[key];
+        break;
+      }
+    }
+
+    if (!foundAccount) {
+      return socket.emit('auth:session_invalid');
+    }
+
+    if (bannedUsers.has(foundAccount.username.toLowerCase())) {
+      return socket.emit('user:banned_error', { reason: 'Esta cuenta ha sido baneada permanentemente.' });
+    }
+
+    initializeSession(socket, foundAccount);
+  });
+
+  // 2. Iniciar sesión con Apodo y Contraseña
+  socket.on('auth:login', ({ username, password }) => {
+    const cleanUsername = (username || '').trim();
+    const accountKey = cleanUsername.toLowerCase();
+
+    if (!cleanUsername || !password) {
+      return socket.emit('auth:error', { message: 'Por favor, completa todos los campos.' });
+    }
+
+    if (bannedUsers.has(accountKey)) {
+      return socket.emit('user:banned_error', { reason: 'Esta cuenta ha sido baneada permanentemente.' });
+    }
+
+    const account = accounts[accountKey];
+    if (!account) {
+      return socket.emit('auth:error', { message: 'El usuario no existe. Regístrate primero.' });
+    }
+
+    if (account.passwordHash !== hashPassword(password)) {
+      return socket.emit('auth:error', { message: 'Contraseña incorrecta.' });
+    }
+
+    // Renovar token
+    account.token = generateToken();
+    saveAccounts();
+
+    initializeSession(socket, account);
+  });
+
+  // 3. Registrar cuenta nueva
+  socket.on('auth:register', ({ username, password, avatar, color, adminPass }) => {
+    const cleanUsername = (username || '').trim().substring(0, 24);
+    const accountKey = cleanUsername.toLowerCase();
+
+    if (!cleanUsername || cleanUsername.length < 2) {
+      return socket.emit('auth:error', { message: 'El nombre debe tener al menos 2 caracteres.' });
+    }
+    if (!password || password.length < 4) {
+      return socket.emit('auth:error', { message: 'La contraseña debe tener al menos 4 caracteres.' });
+    }
+
+    if (bannedUsers.has(accountKey)) {
+      return socket.emit('user:banned_error', { reason: 'Este nombre de usuario se encuentra baneado.' });
+    }
+
+    if (accounts[accountKey]) {
+      return socket.emit('auth:error', { message: 'Este nombre de usuario ya está registrado. Inicia sesión.' });
+    }
+
+    let isMasterAdmin = false;
+    let isAdmin = false;
+
+    if (adminPass) {
+      if (adminPass === MASTER_ADMIN_PASSWORD) {
+        isMasterAdmin = true;
+        isAdmin = true;
+      } else if (adminPass === ADMIN_PASSWORD) {
+        isAdmin = true;
+      }
+    }
+
+    const newAccount = {
+      username: cleanUsername,
+      passwordHash: hashPassword(password),
+      avatar: avatar || '📦',
+      color: color || '#5865F2',
+      isAdmin,
+      isMasterAdmin,
+      token: generateToken(),
+      createdAt: new Date().toISOString()
+    };
+
+    accounts[accountKey] = newAccount;
+    saveAccounts();
+
+    initializeSession(socket, newAccount);
+  });
+
+  // 4. Modo invitado rápido (para retrocompatibilidad)
   socket.on('user:join', ({ username, avatar, color }) => {
     const cleanUsername = (username || 'Amigo').trim().substring(0, 24);
+    const accountKey = cleanUsername.toLowerCase();
 
-    // Verificar si el apodo está baneado
-    if (bannedUsers.has(cleanUsername.toLowerCase())) {
-      socket.emit('user:banned_error', { reason: 'Este apodo o usuario ha sido baneado permanentemente.' });
+    if (bannedUsers.has(accountKey)) {
+      socket.emit('user:banned_error', { reason: 'Este usuario ha sido baneado permanentemente.' });
       return socket.disconnect(true);
     }
 
-    const user = {
+    // Si ya existe como cuenta registrada, exigir contraseña
+    if (accounts[accountKey]) {
+      return socket.emit('auth:require_password', { username: cleanUsername });
+    }
+
+    const guestUser = {
       id: socket.id,
       username: cleanUsername,
       avatar: avatar || '📦',
@@ -125,28 +368,36 @@ io.on('connection', (socket) => {
       isSpeaking: false
     };
 
-    users.set(socket.id, user);
-    socket.user = user;
+    users.set(socket.id, guestUser);
+    socket.user = guestUser;
 
     socket.emit('init:state', {
-      user,
+      user: guestUser,
       channels,
       users: Array.from(users.values()),
       voiceState: getAllVoiceState(),
       messages
     });
 
-    socket.broadcast.emit('user:joined', user);
-    console.log(`[Usuario Registrado] ${cleanUsername} (${socket.id}) desde ${clientIP}`);
+    socket.broadcast.emit('user:joined', guestUser);
   });
 
-  // 2. Autenticación de Administrador (Maestro o Regular)
+  // 5. Autenticación de Administrador
   socket.on('admin:login', ({ password }) => {
     if (!socket.user) return;
 
     if (password === MASTER_ADMIN_PASSWORD) {
       socket.user.isMasterAdmin = true;
       socket.user.isAdmin = true;
+
+      // Persistir rango en su cuenta si está registrada
+      const accountKey = socket.user.username.toLowerCase();
+      if (accounts[accountKey]) {
+        accounts[accountKey].isMasterAdmin = true;
+        accounts[accountKey].isAdmin = true;
+        saveAccounts();
+      }
+
       socket.emit('admin:login_success', { isAdmin: true, isMasterAdmin: true });
       io.emit('user:updated', socket.user);
       io.emit('voice:state_update', getAllVoiceState());
@@ -156,52 +407,47 @@ io.on('connection', (socket) => {
         sender: 'Sistema',
         senderColor: '#FEE75C',
         isSystem: true,
-        text: `👑⭐ ${socket.user.username} ha iniciado sesión como Administrador Maestro de SpecialDeliverySpeak.`,
+        text: `👑⭐ ${socket.user.username} ha iniciado sesión como Administrador Maestro.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       if (!messages['text-general']) messages['text-general'] = [];
       messages['text-general'].push(adminNotice);
       io.emit('chat:message', { channelId: 'text-general', message: adminNotice });
-
-      console.log(`[Admin Maestro] ${socket.user.username} (${socket.id}) autenticado como MASTER ADMIN`);
     } else if (password === ADMIN_PASSWORD) {
       socket.user.isAdmin = true;
       socket.user.isMasterAdmin = false;
+
+      const accountKey = socket.user.username.toLowerCase();
+      if (accounts[accountKey]) {
+        accounts[accountKey].isAdmin = true;
+        saveAccounts();
+      }
+
       socket.emit('admin:login_success', { isAdmin: true, isMasterAdmin: false });
       io.emit('user:updated', socket.user);
       io.emit('voice:state_update', getAllVoiceState());
-
-      const adminNotice = {
-        id: `sys-${Date.now()}`,
-        sender: 'Sistema',
-        senderColor: '#ED4245',
-        isSystem: true,
-        text: `👑 ${socket.user.username} ha iniciado sesión como Administrador.`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      if (!messages['text-general']) messages['text-general'] = [];
-      messages['text-general'].push(adminNotice);
-      io.emit('chat:message', { channelId: 'text-general', message: adminNotice });
-
-      console.log(`[Admin Regular] ${socket.user.username} (${socket.id}) autenticado como ADMIN`);
     } else {
       socket.emit('admin:login_failed', { message: 'Contraseña de administrador incorrecta' });
     }
   });
 
-  // 3. Ascender o Degradar Administrador (Solo Administrador Maestro)
+  // 6. Promover o Degradar Administrador (Guarda en cuenta persistente)
   socket.on('admin:promote_user', ({ targetSocketId, makeAdmin }) => {
     if (!socket.user || !socket.user.isMasterAdmin) {
       return socket.emit('error:permission', 'Solo el Administrador Maestro puede otorgar o quitar el rol de administrador.');
     }
 
     const targetUser = users.get(targetSocketId);
-    if (!targetUser) return;
-
-    // No se puede modificar el rol del propio Master Admin
-    if (targetUser.isMasterAdmin) return;
+    if (!targetUser || targetUser.isMasterAdmin) return;
 
     targetUser.isAdmin = !!makeAdmin;
+
+    // Persistir rango en la base de datos de cuentas
+    const accountKey = targetUser.username.toLowerCase();
+    if (accounts[accountKey]) {
+      accounts[accountKey].isAdmin = targetUser.isAdmin;
+      saveAccounts();
+    }
 
     const targetSocket = io.sockets.sockets.get(targetSocketId);
     if (targetSocket) {
@@ -226,51 +472,38 @@ io.on('connection', (socket) => {
     if (!messages['text-general']) messages['text-general'] = [];
     messages['text-general'].push(notice);
     io.emit('chat:message', { channelId: 'text-general', message: notice });
-
-    console.log(`[Promoción] ${targetUser.username} isAdmin=${makeAdmin} por ${socket.user.username}`);
   });
 
-  // 4. Expulsar Usuario del Servidor (Kick)
+  // 7. Expulsar Usuario del Servidor (Kick)
   socket.on('admin:kick_user', ({ targetSocketId }) => {
     if (!socket.user || (!socket.user.isAdmin && !socket.user.isMasterAdmin)) {
       return socket.emit('error:permission', 'No tienes permisos para expulsar usuarios.');
     }
 
     const targetUser = users.get(targetSocketId);
-    if (!targetUser) return;
-
-    // No se puede expulsar al Administrador Maestro
-    if (targetUser.isMasterAdmin) {
-      return socket.emit('error:permission', 'No puedes expulsar al Administrador Maestro.');
-    }
+    if (!targetUser || targetUser.isMasterAdmin) return;
 
     const targetSocket = io.sockets.sockets.get(targetSocketId);
     if (targetSocket) {
       targetSocket.emit('user:kicked_by_admin', { by: socket.user.username });
       targetSocket.disconnect(true);
     }
-
-    console.log(`[Kick Servidor] ${targetUser.username} expulsado por ${socket.user.username}`);
   });
 
-  // 5. Banear Usuario del Servidor (Ban) - Solo Administrador Maestro
+  // 8. Banear Usuario del Servidor (Ban)
   socket.on('admin:ban_user', ({ targetSocketId, reason }) => {
     if (!socket.user || !socket.user.isMasterAdmin) {
       return socket.emit('error:permission', 'Solo el Administrador Maestro puede banear usuarios.');
     }
 
     const targetUser = users.get(targetSocketId);
-    if (!targetUser) return;
+    if (!targetUser || targetUser.isMasterAdmin) return;
 
-    if (targetUser.isMasterAdmin) {
-      return socket.emit('error:permission', 'No puedes banear al Administrador Maestro.');
-    }
-
-    // Registrar en listas de baneo (evitando banear el host local)
     if (targetUser.ip && !isLoopbackIP(targetUser.ip)) {
       bannedIPs.add(targetUser.ip);
     }
     bannedUsers.add(targetUser.username.toLowerCase());
+    saveBans();
 
     const banNotice = {
       id: `sys-${Date.now()}`,
@@ -289,11 +522,9 @@ io.on('connection', (socket) => {
       targetSocket.emit('user:banned_by_admin', { by: socket.user.username, reason });
       targetSocket.disconnect(true);
     }
-
-    console.log(`[Ban Servidor] ${targetUser.username} (${targetUser.ip}) baneado por ${socket.user.username}`);
   });
 
-  // 6. Mutear Usuario en Servidor (Server Mute)
+  // 9. Mutear Usuario en Servidor
   socket.on('admin:mute_user', ({ targetSocketId }) => {
     if (!socket.user || (!socket.user.isAdmin && !socket.user.isMasterAdmin)) {
       return socket.emit('error:permission', 'No tienes permisos para silenciar usuarios.');
@@ -305,7 +536,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 7. Crear Canal (Admin o Master Admin)
+  // 10. Crear Canal
   socket.on('admin:create_channel', ({ name, type, userLimit }) => {
     if (!socket.user || (!socket.user.isAdmin && !socket.user.isMasterAdmin)) {
       return socket.emit('error:permission', 'Solo un administrador puede crear canales.');
@@ -330,14 +561,13 @@ io.on('connection', (socket) => {
     if (channelType === 'text') {
       messages[channelId] = [];
     }
+    saveChannels();
 
     io.emit('channel:created', newChannel);
     io.emit('voice:state_update', getAllVoiceState());
-
-    console.log(`[Canal Creado] ${newChannel.name} (${newChannel.type}) por ${socket.user.username}`);
   });
 
-  // 8. Eliminar Canal (Admin o Master Admin)
+  // 11. Eliminar Canal
   socket.on('admin:delete_channel', ({ channelId }) => {
     if (!socket.user || (!socket.user.isAdmin && !socket.user.isMasterAdmin)) {
       return socket.emit('error:permission', 'Solo un administrador puede eliminar canales.');
@@ -347,6 +577,7 @@ io.on('connection', (socket) => {
     if (channelIndex === -1) return;
 
     const deleted = channels.splice(channelIndex, 1)[0];
+    saveChannels();
 
     if (deleted.type === 'voice') {
       for (const [sId, u] of users.entries()) {
@@ -363,13 +594,11 @@ io.on('connection', (socket) => {
     }
 
     delete messages[channelId];
-
     io.emit('channel:deleted', { channelId });
     io.emit('voice:state_update', getAllVoiceState());
-    console.log(`[Canal Eliminado] ${deleted.name}`);
   });
 
-  // 9. Expulsar de canal de voz (Admin Kick Voice)
+  // 12. Expulsar de canal de voz
   socket.on('admin:kick_voice', ({ targetSocketId }) => {
     if (!socket.user || (!socket.user.isAdmin && !socket.user.isMasterAdmin)) {
       return socket.emit('error:permission', 'Solo un administrador puede expulsar de voz.');
@@ -434,7 +663,6 @@ io.on('connection', (socket) => {
 
     io.emit('voice:state_update', getAllVoiceState());
     io.emit('user:updated', socket.user);
-    console.log(`[Voz] ${socket.user.username} se unió a ${channel.name}`);
   });
 
   socket.on('voice:leave', () => {

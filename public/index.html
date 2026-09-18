@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SpecialDeliverySpeak | Canales de Voz DSP & Chat</title>
+  <title>Special Delivery | Canales de Voz & Chat</title>
+  <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
+  <link rel="apple-touch-icon" href="assets/logo.jpg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -11,18 +13,46 @@
 </head>
 <body>
 
-  <!-- Modal de Entrada / Login de Usuario -->
+  <!-- MODAL DE AUTENTICACIÓN / LOGIN & REGISTRO -->
   <div id="login-overlay" class="overlay active">
-    <div class="modal login-modal">
+    <div class="modal auth-modal">
       <div class="modal-header">
-        <div class="logo-icon">📦🎙️</div>
-        <h2>SpecialDeliverySpeak</h2>
-        <p>Salas de voz con calidad de estudio DSP y chat en vivo</p>
+        <div class="auth-brand-badge">
+          <img src="assets/logo.jpg" alt="Special Delivery" class="auth-modal-logo">
+        </div>
+        <h2>Special Delivery</h2>
+        <p>Tu cuenta permanece guardada en este equipo de por vida</p>
       </div>
-      <form id="login-form">
+
+      <!-- Selector de Pestañas: Login vs Registro -->
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" id="tab-btn-login">Iniciar Sesión</button>
+        <button type="button" class="auth-tab" id="tab-btn-register">Crear Cuenta</button>
+      </div>
+
+      <!-- Formulario 1: Iniciar Sesión -->
+      <form id="form-login" class="auth-form-panel">
         <div class="form-group">
-          <label for="input-username">Tu Apodo / Nickname</label>
-          <input type="text" id="input-username" placeholder="Ej. Alex, Maverick, Dani..." maxlength="20" required autofocus autocomplete="off">
+          <label for="login-user">Tu Apodo</label>
+          <input type="text" id="login-user" placeholder="Tu apodo registrado..." required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="login-pass">Contraseña</label>
+          <input type="password" id="login-pass" placeholder="Tu contraseña..." required autocomplete="current-password">
+        </div>
+        <span class="form-error hidden" id="login-error-msg"></span>
+        <button type="submit" class="btn btn-primary btn-full">Entrar a la Sala 🚀</button>
+      </form>
+
+      <!-- Formulario 2: Crear Cuenta -->
+      <form id="form-register" class="auth-form-panel hidden">
+        <div class="form-group">
+          <label for="reg-user">Elige tu Apodo</label>
+          <input type="text" id="reg-user" placeholder="Ej. Alex, Dani, Maverick..." maxlength="20" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="reg-pass">Crea una Contraseña</label>
+          <input type="password" id="reg-pass" placeholder="Mínimo 4 caracteres..." minlength="4" required autocomplete="new-password">
         </div>
 
         <div class="form-group">
@@ -53,31 +83,35 @@
 
         <div class="admin-checkbox-group">
           <label class="custom-checkbox">
-            <input type="checkbox" id="check-is-admin">
+            <input type="checkbox" id="reg-check-admin">
             <span class="checkmark"></span>
-            Acceder como Administrador (Maestro / Regular)
+            Soy Administrador (tengo clave de acceso)
           </label>
         </div>
 
-        <div class="form-group hidden" id="group-admin-pass">
-          <label for="input-login-admin-pass">Clave Maestra de Administrador</label>
-          <input type="password" id="input-login-admin-pass" placeholder="Introduce la contraseña...">
+        <div class="form-group hidden" id="reg-group-admin-pass">
+          <label for="reg-admin-pass">Clave Maestra de Administrador</label>
+          <input type="password" id="reg-admin-pass" placeholder="Clave de admin...">
         </div>
 
-        <button type="submit" class="btn btn-primary btn-full">Entrar a la Sala 🚀</button>
+        <span class="form-error hidden" id="reg-error-msg"></span>
+        <button type="submit" class="btn btn-primary btn-full">Crear Cuenta y Entrar 🎉</button>
       </form>
     </div>
   </div>
 
-  <!-- Aplicación Principal -->
+  <!-- APLICACIÓN PRINCIPAL -->
   <div class="app-layout" id="app-layout">
     
     <!-- Barra lateral izquierda (Canales) -->
     <aside class="sidebar-channels">
       <header class="server-header">
         <div class="server-info">
-          <span class="server-shield">📦</span>
-          <h1 class="server-title">SpecialDeliverySpeak</h1>
+          <img src="assets/logo.jpg" alt="Special Delivery" class="server-logo-img">
+          <div class="server-brand-group">
+            <h1 class="server-title">Special Delivery</h1>
+            <span class="server-badge-online"><span class="badge-dot"></span>SPEAK LIVE</span>
+          </div>
         </div>
         <div class="server-header-actions">
           <button id="btn-invite" class="btn-invite-top" title="Invitar Amigos">🔗 Invitar</button>
@@ -87,43 +121,23 @@
         </div>
       </header>
 
-      <div class="channels-scroll">
-        <!-- Categoría de Canales de Texto -->
-        <div class="channel-category">
-          <div class="category-header">
-            <span class="category-arrow">▼</span>
-            <span class="category-name">CANALES DE TEXTO</span>
-            <button class="btn-add-channel admin-only hidden" id="btn-add-text-channel" title="Crear Canal de Texto">+</button>
-          </div>
-          <div class="channels-list" id="text-channels-list">
-            <!-- Renderizado dinámico -->
-          </div>
-        </div>
-
-        <!-- Categoría de Canales de Voz -->
-        <div class="channel-category">
-          <div class="category-header">
-            <span class="category-arrow">▼</span>
-            <span class="category-name">CANALES DE VOZ (DSP HQ)</span>
-            <button class="btn-add-channel admin-only hidden" id="btn-add-voice-channel" title="Crear Canal de Voz">+</button>
-          </div>
-          <div class="channels-list" id="voice-channels-list">
-            <!-- Renderizado dinámico con miembros activos y controles de volumen -->
-          </div>
-        </div>
+      <div class="channels-scroll" id="channels-scroll">
+        <!-- Render dinámico de categorías (General, Campo 1, Campo 2) -->
+        <div id="dynamic-categories-container"></div>
       </div>
 
       <!-- Barra de estado de conexión de voz -->
       <div class="voice-connection-status hidden" id="voice-connection-box">
         <div class="status-left">
-          <div class="signal-indicator connected"></div>
+          <div class="signal-indicator connected" id="voice-signal-indicator"></div>
           <div class="status-text">
-            <span class="voice-state-title">Voz DSP Conectada</span>
-            <span class="voice-channel-current" id="current-voice-channel-name">Sala Común</span>
+            <span class="voice-state-title" id="voice-state-title">Voz Conectada</span>
+            <span class="voice-channel-current" id="current-voice-channel-name">Sala</span>
           </div>
         </div>
         <div class="status-right-badges">
-          <span class="badge-dsp" title="Filtro Pasa-Altos, EQ de Presencia y Compresor activo">✨ DSP</span>
+          <button id="btn-request-mic" class="btn-request-mic hidden" title="Activar mi Micrófono">🎙️ Activar Mic</button>
+          <span class="badge-dsp" id="badge-active-dsp" title="DSP Activo">✨ GAMER</span>
           <button id="btn-disconnect-voice" class="btn-disconnect" title="Desconectarse de la voz">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
@@ -132,7 +146,7 @@
         </div>
       </div>
 
-      <!-- Dock del Usuario (Perfil, Controles de Micro, DSP y Supresión de Ruido) -->
+      <!-- Dock del Usuario -->
       <footer class="user-dock">
         <div class="user-profile">
           <div class="user-avatar-badge" id="my-avatar">📦</div>
@@ -151,8 +165,11 @@
           <button id="btn-toggle-noise" class="dock-btn active-feature" title="Supresión de Sonido: ACTIVADA">
             <span class="icon-noise" id="icon-noise">🛡️</span>
           </button>
-          <button id="btn-admin-gear" class="dock-btn" title="Panel de Administrador">
-            <span class="icon-gear">⚙️</span>
+          <button id="btn-voice-settings" class="dock-btn" title="Ajustes de Voz y Micrófono">
+            <span class="icon-voice-gear">⚙️</span>
+          </button>
+          <button id="btn-logout" class="dock-btn" title="Cerrar Sesión">
+            <span class="icon-logout">🚪</span>
           </button>
         </div>
       </footer>
@@ -175,10 +192,8 @@
         ⚠️ <strong>Modo Solo Escuchar:</strong> Si deseas hablar, permite el acceso al micrófono en el icono del candado 🔒 del navegador y pulsa el botón del micrófono.
       </div>
 
-      <!-- Contenedor de Mensajes -->
       <div class="messages-container" id="messages-container"></div>
 
-      <!-- Barra de Input de Texto -->
       <footer class="chat-input-wrapper">
         <form id="chat-form" class="chat-input-form">
           <div class="input-container">
@@ -206,8 +221,129 @@
 
   </div>
 
-  <!-- Contenedor oculto para elementos de audio WebRTC -->
   <div id="remote-audio-container" style="display:none;"></div>
+
+  <!-- MODAL: AJUSTES DE VOZ & MICRÓFONO -->
+  <div id="modal-voice-settings" class="overlay">
+    <div class="modal settings-modal">
+      <div class="modal-header">
+        <div class="logo-icon">🎛️</div>
+        <h3>Ajustes de Voz & Micrófono</h3>
+        <p>Calibración de sensibilidad, Push-to-Talk y perfiles DSP</p>
+        <button class="btn-close-modal" id="btn-close-voice-settings">&times;</button>
+      </div>
+      <div class="settings-modal-body">
+        
+        <!-- 1. Calibrador de Micrófono & Puerta de Ruido -->
+        <div class="settings-section">
+          <h4>VÚMETRO & PUERTA DE RUIDO (NOISE GATE)</h4>
+          <p class="settings-subtext">Habla ahora para calibrar tu micrófono. El audio solo se transmitirá cuando la barra verde supere la marca de umbral.</p>
+          
+          <div class="mic-meter-container">
+            <div class="mic-meter-bar" id="mic-meter-bar" style="width: 0%;"></div>
+            <div class="mic-meter-threshold-line" id="mic-meter-threshold-line" style="left: 18%;"></div>
+          </div>
+
+          <div class="form-group" style="margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted);">
+              <span>Sensibilidad / Puerta de Ruido</span>
+              <strong id="val-noise-gate">18%</strong>
+            </div>
+            <input type="range" id="slider-noise-gate" min="1" max="80" value="18" class="settings-slider">
+          </div>
+        </div>
+
+        <!-- 2. Modo de Transmisión (VAD vs Push-to-Talk) -->
+        <div class="settings-section">
+          <h4>MODO DE TRANSMISIÓN</h4>
+          <div class="ptt-mode-options">
+            <label class="radio-card selected" id="radio-mode-vad">
+              <input type="radio" name="voice-mode" value="vad" checked>
+              <span class="type-icon">🗣️</span>
+              <div class="type-info">
+                <strong>Activación por Voz</strong>
+                <small>Transmite automáticamente cuando detecta que hablas</small>
+              </div>
+            </label>
+            <label class="radio-card" id="radio-mode-ptt">
+              <input type="radio" name="voice-mode" value="ptt">
+              <span class="type-icon">📻</span>
+              <div class="type-info">
+                <strong>Pulsar para Hablar (Push-to-Talk)</strong>
+                <small>Solo transmite mientras mantienes pulsada la tecla</small>
+              </div>
+            </label>
+          </div>
+
+          <div class="ptt-keybind-row hidden" id="ptt-keybind-container">
+            <span>Tecla de Activación:</span>
+            <button type="button" class="btn-keybind" id="btn-assign-ptt-key">Espacio</button>
+            <small style="color: var(--text-muted);">(Haz clic para cambiar)</small>
+          </div>
+        </div>
+
+        <!-- 3. Perfil de Sonido DSP -->
+        <div class="settings-section">
+          <h4>PERFIL DE ESTUDIO DSP</h4>
+          <div class="dsp-profile-selector">
+            <button type="button" class="btn-dsp-profile active" data-profile="gamer">
+              🎮 Gamer (Claridad)
+            </button>
+            <button type="button" class="btn-dsp-profile" data-profile="podcast">
+              🎙️ Podcast (Cálido)
+            </button>
+            <button type="button" class="btn-dsp-profile" data-profile="neutral">
+              🎵 Neutro (Plano)
+            </button>
+          </div>
+        </div>
+
+        <!-- 4. Pruebas de Sonidos de Discord -->
+        <div class="settings-section">
+          <h4>🎧 EFECTOS DE SONIDO ESTILO DISCORD</h4>
+          <p class="settings-subtext">Sonidos polifónicos armónicos con timbre idéntico a Discord. Haz clic para probarlos:</p>
+          <div class="sound-test-grid">
+            <button type="button" class="btn-test-sound" id="btn-test-join">🔔 Conectar (Join)</button>
+            <button type="button" class="btn-test-sound" id="btn-test-leave">🚪 Salir (Leave)</button>
+            <button type="button" class="btn-test-sound" id="btn-test-msg">💬 Mensaje (Pop)</button>
+            <button type="button" class="btn-test-sound" id="btn-test-mute">🎙️🚫 Mute</button>
+            <button type="button" class="btn-test-sound" id="btn-test-unmute">🎙️ Desmute</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Guía de Permiso de Micrófono -->
+  <div id="modal-mic-guide" class="overlay">
+    <div class="modal mic-guide-modal">
+      <div class="modal-header">
+        <div class="guide-icon">🎙️🔒</div>
+        <h3>Permiso de Micrófono</h3>
+        <button class="btn-close-modal" id="btn-close-mic-guide">&times;</button>
+      </div>
+      <div class="mic-guide-body">
+        <p style="color: var(--text-normal); font-size: 14px; margin-bottom: 14px;">Tu navegador no tiene activo el permiso de micrófono. Sigue estos 2 pasos para activarlo:</p>
+        <div class="guide-step">
+          <div class="step-num">1</div>
+          <div class="step-desc">
+            En la <strong>barra de direcciones (URL)</strong> arriba en tu navegador, haz clic en el <strong>Candado 🔒</strong> o icono de configuración del sitio.
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="step-num">2</div>
+          <div class="step-desc">
+            Cambia la opción de <strong>Micrófono</strong> a <strong>"Permitir" (Allow)</strong>.
+          </div>
+        </div>
+        <div class="guide-note">
+          💡 <em>Recuerda: Si estás en modo oyente, puedes seguir escuchando a todos con total normalidad mientras lo activas.</em>
+        </div>
+        <button type="button" class="btn btn-primary btn-full" id="btn-retry-mic">Reintentar Conectar Micrófono 🎙️</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL: Crear Canal -->
   <div id="modal-create-channel" class="overlay">
@@ -266,7 +402,7 @@
         <button class="btn-close-modal" id="btn-close-admin-modal">&times;</button>
       </div>
       <form id="form-admin-auth">
-        <p class="modal-notice">Introduce la clave de <strong>Administrador Maestro</strong> para control total (banear, mutear, expulsar y otorgar administradores) o la clave de <strong>Administrador regular</strong>.</p>
+        <p class="modal-notice">Introduce la clave de <strong>Administrador Maestro</strong> para control total o la clave de <strong>Administrador regular</strong>.</p>
         <div class="form-group">
           <label for="input-admin-auth-pass">Contraseña de Administrador</label>
           <input type="password" id="input-admin-auth-pass" placeholder="Introduce la contraseña..." required autofocus>
@@ -302,7 +438,7 @@
         <div class="invite-info-card">
           <h4>💡 ¿Cómo se conectan tus amigos?</h4>
           <ul>
-            <li><strong>Por Internet (desde sus casas):</strong> Abre el archivo <code>compartir-con-amigos.bat</code> en la carpeta de la app para darles un enlace público seguro <code>https://...trycloudflare.com</code>.</li>
+            <li><strong>Por Internet (desde sus casas):</strong> Abre el archivo <code>compartir-con-amigos.bat</code> en la carpeta de la app para darles un enlace seguro <code>https://...trycloudflare.com</code>.</li>
             <li><strong>En la misma casa (Wi-Fi):</strong> Envíales directamente <code>http://192.168.1.9:3000</code>.</li>
           </ul>
         </div>

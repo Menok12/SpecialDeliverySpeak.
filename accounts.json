@@ -1,0 +1,22 @@
+{
+  "progamer2026": {
+    "username": "ProGamer2026",
+    "passwordHash": "7154bd87e992669569cb89475c495e818a657d6d980c2fc90db48ec222bf0199",
+    "avatar": "💎",
+    "color": "#00B0F4",
+    "isAdmin": true,
+    "isMasterAdmin": true,
+    "token": "c9cd7c537796dfc28c62c0ff2ef27a08f1fde8e2121a83e76899de3e0162da9b",
+    "createdAt": "2026-09-18T12:47:27.082Z"
+  },
+  "elbolas": {
+    "username": "ELBOLAS",
+    "passwordHash": "0cccbc1097ec46280deb57b13bce8152c771786ab5e6c6f28de912b148cb84a5",
+    "avatar": "📦",
+    "color": "#5865F2",
+    "isAdmin": false,
+    "isMasterAdmin": false,
+    "token": "1dc41160e9aafc52b03669f12013929ae87d5f624d0defc7e57e36568d5f7c7a",
+    "createdAt": "2026-09-18T12:50:01.605Z"
+  }
+}
