@@ -1,0 +1,25 @@
+{
+  "name": "amigovoice",
+  "version": "1.0.0",
+  "description": "Aplicación web de canales de voz y chat en tiempo real con panel de administración",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "voice",
+    "chat",
+    "webrtc",
+    "socket.io",
+    "discord-clone"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.3"
+  }
+}

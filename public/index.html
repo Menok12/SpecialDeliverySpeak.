@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SpecialDeliverySpeak | Canales de Voz DSP & Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Modal de Entrada / Login de Usuario -->
+  <div id="login-overlay" class="overlay active">
+    <div class="modal login-modal">
+      <div class="modal-header">
+        <div class="logo-icon">📦🎙️</div>
+        <h2>SpecialDeliverySpeak</h2>
+        <p>Salas de voz con calidad de estudio DSP y chat en vivo</p>
+      </div>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="input-username">Tu Apodo / Nickname</label>
+          <input type="text" id="input-username" placeholder="Ej. Alex, Maverick, Dani..." maxlength="20" required autofocus autocomplete="off">
+        </div>
+
+        <div class="form-group">
+          <label>Elige tu Avatar</label>
+          <div class="avatar-picker" id="avatar-picker">
+            <button type="button" class="avatar-opt selected" data-avatar="📦">📦</button>
+            <button type="button" class="avatar-opt" data-avatar="🎮">🎮</button>
+            <button type="button" class="avatar-opt" data-avatar="🎧">🎧</button>
+            <button type="button" class="avatar-opt" data-avatar="🚀">🚀</button>
+            <button type="button" class="avatar-opt" data-avatar="🦊">🦊</button>
+            <button type="button" class="avatar-opt" data-avatar="⚡">⚡</button>
+            <button type="button" class="avatar-opt" data-avatar="🔥">🔥</button>
+            <button type="button" class="avatar-opt" data-avatar="💎">💎</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Color de Nombre</label>
+          <div class="color-picker" id="color-picker">
+            <button type="button" class="color-opt selected" style="background-color: #5865F2;" data-color="#5865F2"></button>
+            <button type="button" class="color-opt" style="background-color: #57F287;" data-color="#57F287"></button>
+            <button type="button" class="color-opt" style="background-color: #FEE75C;" data-color="#FEE75C"></button>
+            <button type="button" class="color-opt" style="background-color: #EB459E;" data-color="#EB459E"></button>
+            <button type="button" class="color-opt" style="background-color: #ED4245;" data-color="#ED4245"></button>
+            <button type="button" class="color-opt" style="background-color: #00B0F4;" data-color="#00B0F4"></button>
+          </div>
+        </div>
+
+        <div class="admin-checkbox-group">
+          <label class="custom-checkbox">
+            <input type="checkbox" id="check-is-admin">
+            <span class="checkmark"></span>
+            Acceder como Administrador (Maestro / Regular)
+          </label>
+        </div>
+
+        <div class="form-group hidden" id="group-admin-pass">
+          <label for="input-login-admin-pass">Clave Maestra de Administrador</label>
+          <input type="password" id="input-login-admin-pass" placeholder="Introduce la contraseña...">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full">Entrar a la Sala 🚀</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Aplicación Principal -->
+  <div class="app-layout" id="app-layout">
+    
+    <!-- Barra lateral izquierda (Canales) -->
+    <aside class="sidebar-channels">
+      <header class="server-header">
+        <div class="server-info">
+          <span class="server-shield">📦</span>
+          <h1 class="server-title">SpecialDeliverySpeak</h1>
+        </div>
+        <div class="server-header-actions">
+          <button id="btn-invite" class="btn-invite-top" title="Invitar Amigos">🔗 Invitar</button>
+          <button id="btn-admin-panel" class="btn-icon" title="Acceso de Administrador">
+            <span class="crown-icon">👑</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="channels-scroll">
+        <!-- Categoría de Canales de Texto -->
+        <div class="channel-category">
+          <div class="category-header">
+            <span class="category-arrow">▼</span>
+            <span class="category-name">CANALES DE TEXTO</span>
+            <button class="btn-add-channel admin-only hidden" id="btn-add-text-channel" title="Crear Canal de Texto">+</button>
+          </div>
+          <div class="channels-list" id="text-channels-list">
+            <!-- Renderizado dinámico -->
+          </div>
+        </div>
+
+        <!-- Categoría de Canales de Voz -->
+        <div class="channel-category">
+          <div class="category-header">
+            <span class="category-arrow">▼</span>
+            <span class="category-name">CANALES DE VOZ (DSP HQ)</span>
+            <button class="btn-add-channel admin-only hidden" id="btn-add-voice-channel" title="Crear Canal de Voz">+</button>
+          </div>
+          <div class="channels-list" id="voice-channels-list">
+            <!-- Renderizado dinámico con miembros activos y controles de volumen -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de estado de conexión de voz -->
+      <div class="voice-connection-status hidden" id="voice-connection-box">
+        <div class="status-left">
+          <div class="signal-indicator connected"></div>
+          <div class="status-text">
+            <span class="voice-state-title">Voz DSP Conectada</span>
+            <span class="voice-channel-current" id="current-voice-channel-name">Sala Común</span>
+          </div>
+        </div>
+        <div class="status-right-badges">
+          <span class="badge-dsp" title="Filtro Pasa-Altos, EQ de Presencia y Compresor activo">✨ DSP</span>
+          <button id="btn-disconnect-voice" class="btn-disconnect" title="Desconectarse de la voz">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dock del Usuario (Perfil, Controles de Micro, DSP y Supresión de Ruido) -->
+      <footer class="user-dock">
+        <div class="user-profile">
+          <div class="user-avatar-badge" id="my-avatar">📦</div>
+          <div class="user-details">
+            <span class="my-username" id="my-username-display">Usuario</span>
+            <span class="my-role" id="my-role-display">Miembro</span>
+          </div>
+        </div>
+        <div class="user-controls">
+          <button id="btn-toggle-mic" class="dock-btn" title="Silenciar / Activar Micrófono">
+            <span class="icon-mic" id="icon-mic">🎙️</span>
+          </button>
+          <button id="btn-toggle-deafen" class="dock-btn" title="Ensordecer / Activar Sonido">
+            <span class="icon-deafen" id="icon-deafen">🎧</span>
+          </button>
+          <button id="btn-toggle-noise" class="dock-btn active-feature" title="Supresión de Sonido: ACTIVADA">
+            <span class="icon-noise" id="icon-noise">🛡️</span>
+          </button>
+          <button id="btn-admin-gear" class="dock-btn" title="Panel de Administrador">
+            <span class="icon-gear">⚙️</span>
+          </button>
+        </div>
+      </footer>
+    </aside>
+
+    <!-- Área Central: Chat y Visualizador de Voz -->
+    <main class="chat-area">
+      <header class="chat-header">
+        <div class="chat-header-info">
+          <span class="chat-hash">#</span>
+          <h2 class="active-channel-name" id="active-channel-title">general</h2>
+          <span class="channel-desc" id="active-channel-desc">Canal general de SpecialDeliverySpeak</span>
+        </div>
+        <div class="chat-header-actions">
+          <span class="network-badge" id="network-badge">🟢 Conectado</span>
+        </div>
+      </header>
+
+      <div id="mic-perm-banner" class="mic-alert-banner hidden">
+        ⚠️ <strong>Modo Solo Escuchar:</strong> Si deseas hablar, permite el acceso al micrófono en el icono del candado 🔒 del navegador y pulsa el botón del micrófono.
+      </div>
+
+      <!-- Contenedor de Mensajes -->
+      <div class="messages-container" id="messages-container"></div>
+
+      <!-- Barra de Input de Texto -->
+      <footer class="chat-input-wrapper">
+        <form id="chat-form" class="chat-input-form">
+          <div class="input-container">
+            <input type="text" id="chat-input" placeholder="Enviar mensaje a #general..." maxlength="1000" autocomplete="off">
+            <div class="input-actions">
+              <button type="button" class="btn-emoji-shortcut" id="btn-quick-smile" title="Insertar emoji">😀</button>
+              <button type="submit" class="btn-send-message" id="btn-send" title="Enviar Mensaje">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </form>
+      </footer>
+    </main>
+
+    <!-- Barra lateral derecha: Miembros en línea -->
+    <aside class="sidebar-members">
+      <div class="members-header">
+        MIEMBROS (<span id="total-members-count">0</span>)
+      </div>
+      <div class="members-list-scroll" id="members-list"></div>
+    </aside>
+
+  </div>
+
+  <!-- Contenedor oculto para elementos de audio WebRTC -->
+  <div id="remote-audio-container" style="display:none;"></div>
+
+  <!-- MODAL: Crear Canal -->
+  <div id="modal-create-channel" class="overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Crear Canal</h3>
+        <button class="btn-close-modal" id="btn-close-create-modal">&times;</button>
+      </div>
+      <form id="form-create-channel">
+        <div class="form-group">
+          <label>Tipo de Canal</label>
+          <div class="channel-type-selector">
+            <label class="radio-card selected" id="radio-card-voice">
+              <input type="radio" name="channel-type" value="voice" checked>
+              <span class="type-icon">🔊</span>
+              <div class="type-info">
+                <strong>Voz DSP</strong>
+                <small>Habla en tiempo real con reducción de ruido y ecualización de estudio</small>
+              </div>
+            </label>
+            <label class="radio-card" id="radio-card-text">
+              <input type="radio" name="channel-type" value="text">
+              <span class="type-icon">💬</span>
+              <div class="type-info">
+                <strong>Texto</strong>
+                <small>Escribe mensajes, comparte imágenes y enlaces</small>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="input-channel-name">Nombre del Canal</label>
+          <input type="text" id="input-channel-name" placeholder="Ej. squad-warzone, charla-chill" maxlength="30" required>
+        </div>
+
+        <div class="form-group" id="group-user-limit">
+          <label for="input-user-limit">Límite de Usuarios en Voz (0 = Ilimitado)</label>
+          <input type="number" id="input-user-limit" min="0" max="99" value="0">
+        </div>
+
+        <div class="modal-buttons">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-create-channel">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Crear Canal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Autenticarse como Administrador -->
+  <div id="modal-admin-auth" class="overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="logo-icon">👑⭐</div>
+        <h3>Modo Administrador</h3>
+        <button class="btn-close-modal" id="btn-close-admin-modal">&times;</button>
+      </div>
+      <form id="form-admin-auth">
+        <p class="modal-notice">Introduce la clave de <strong>Administrador Maestro</strong> para control total (banear, mutear, expulsar y otorgar administradores) o la clave de <strong>Administrador regular</strong>.</p>
+        <div class="form-group">
+          <label for="input-admin-auth-pass">Contraseña de Administrador</label>
+          <input type="password" id="input-admin-auth-pass" placeholder="Introduce la contraseña..." required autofocus>
+          <span class="form-error hidden" id="admin-auth-error">Contraseña incorrecta</span>
+        </div>
+        <div class="modal-buttons">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-admin-auth">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Desbloquear Admin</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Invitar Amigos -->
+  <div id="modal-invite" class="overlay">
+    <div class="modal invite-modal">
+      <div class="modal-header">
+        <div class="logo-icon">🔗</div>
+        <h3>Invitar a tus Amigos</h3>
+        <p>Comparte este enlace para que tus amigos entren a hablar contigo</p>
+        <button class="btn-close-modal" id="btn-close-invite-modal">&times;</button>
+      </div>
+      <div class="invite-modal-body">
+        <div class="form-group">
+          <label>Enlace de esta sesión</label>
+          <div class="copy-input-group">
+            <input type="text" id="input-invite-link" readonly value="">
+            <button type="button" class="btn btn-primary" id="btn-copy-invite">Copiar</button>
+          </div>
+          <span class="copy-feedback hidden" id="copy-feedback">¡Enlace copiado al portapapeles! 🎉</span>
+        </div>
+
+        <div class="invite-info-card">
+          <h4>💡 ¿Cómo se conectan tus amigos?</h4>
+          <ul>
+            <li><strong>Por Internet (desde sus casas):</strong> Abre el archivo <code>compartir-con-amigos.bat</code> en la carpeta de la app para darles un enlace público seguro <code>https://...trycloudflare.com</code>.</li>
+            <li><strong>En la misma casa (Wi-Fi):</strong> Envíales directamente <code>http://192.168.1.9:3000</code>.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/webrtc.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

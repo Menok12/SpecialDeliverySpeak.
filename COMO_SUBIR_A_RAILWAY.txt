@@ -1,0 +1,49 @@
+================================================================================
+       📦🎙️ CÓMO SUBIR SPECIALDELIVERYSPEAK A RAILWAY.APP EN 3 PASOS
+================================================================================
+
+Subir esta carpeta a Railway te dará un enlace oficial HTTPS gratuito que estará
+encendido 24/7 sin necesidad de dejar tu PC prendido.
+
+--------------------------------------------------------------------------------
+PASO 1: SUBIR ESTA CARPETA A TU GITHUB (2 minutos)
+--------------------------------------------------------------------------------
+1. Entra a tu cuenta en https://github.com (crea una si no tienes).
+2. Haz clic en el botón verde "New" (Nuevo repositorio).
+3. Ponle de nombre: SpecialDeliverySpeak
+4. Elige si quieres que sea Público o Privado.
+5. Haz clic en "Create repository".
+6. Sube los archivos de esta carpeta:
+   - Puedes arrastrar todos los archivos de esta carpeta directamente a la web de GitHub
+     haciendo clic en "uploading an existing file".
+   - O si tienes Git en tu PC:
+       git init
+       git add .
+       git commit -m "SpecialDeliverySpeak v1"
+       git remote add origin TU_URL_DE_GITHUB
+       git push -u origin main
+
+--------------------------------------------------------------------------------
+PASO 2: CONECTAR A RAILWAY.APP (1 minuto)
+--------------------------------------------------------------------------------
+1. Entra en https://railway.app e inicia sesión con tu cuenta de GitHub.
+2. En el panel principal, haz clic en "+ New Project".
+3. Selecciona "Deploy from GitHub repo".
+4. Elige el repositorio que acabas de crear: SpecialDeliverySpeak.
+5. Railway detectará automáticamente el archivo package.json y comenzará a compilarlo.
+
+--------------------------------------------------------------------------------
+PASO 3: CONFIGURAR CONTRASEÑA Y GENERAR TU ENLACE PÚBLICO
+--------------------------------------------------------------------------------
+1. En Railway, haz clic sobre la caja de tu proyecto y ve a la pestaña "Variables".
+2. Añade estas 2 variables (las mismas que en tu .env):
+   - MASTER_ADMIN_PASSWORD  ->  tu_clave_maestra_aqui
+   - ADMIN_PASSWORD         ->  tu_clave_amigos_aqui
+
+3. Ve a la pestaña "Settings" (Ajustes de tu servicio en Railway).
+4. Baja hasta la sección "Networking" y haz clic en "Generate Domain".
+5. ¡LISTO! Railway te dará tu enlace oficial permanente, por ejemplo:
+   https://specialdeliveryspeak-production.up.railway.app
+
+¡Ese enlace lo compartes con tus amigos y funcionará 24 horas al día, 7 días a la semana!
+================================================================================
