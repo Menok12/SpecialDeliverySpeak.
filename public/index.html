@@ -97,6 +97,12 @@
         <span class="form-error hidden" id="reg-error-msg"></span>
         <button type="submit" class="btn btn-primary btn-full">Crear Cuenta y Entrar 🎉</button>
       </form>
+
+      <!-- Banner para descargar App de PC -->
+      <div class="auth-download-banner" id="auth-download-banner">
+        <span class="auth-download-text">🎙️ ¿Mejor audio y cero permisos en el navegador?</span>
+        <button type="button" id="btn-login-download" class="btn-download-pill">💻 Descargar App PC</button>
+      </div>
     </div>
   </div>
 
@@ -114,6 +120,7 @@
           </div>
         </div>
         <div class="server-header-actions">
+          <button id="btn-header-download" class="btn-top-download" title="Descargar App para PC (Windows)">💻 App PC</button>
           <button id="btn-invite" class="btn-invite-top" title="Invitar Amigos">🔗 Invitar</button>
           <button id="btn-admin-panel" class="btn-icon" title="Acceso de Administrador">
             <span class="crown-icon">👑</span>
@@ -189,7 +196,7 @@
       </header>
 
       <div id="mic-perm-banner" class="mic-alert-banner hidden">
-        ⚠️ <strong>Modo Solo Escuchar:</strong> Si deseas hablar, permite el acceso al micrófono en el icono del candado 🔒 del navegador y pulsa el botón del micrófono.
+        ⚠️ <strong>Modo Solo Escuchar:</strong> Si tienes problemas con el permiso de micrófono en tu navegador, te recomendamos la <strong>App de Escritorio</strong>: <button type="button" id="btn-banner-download" class="btn-download-inline">💻 Descargar App PC</button>
       </div>
 
       <div class="messages-container" id="messages-container"></div>
@@ -239,18 +246,29 @@
           <h4>VÚMETRO & PUERTA DE RUIDO (NOISE GATE)</h4>
           <p class="settings-subtext">Habla ahora para calibrar tu micrófono. El audio solo se transmitirá cuando la barra verde supere la marca de umbral.</p>
           
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label for="select-mic-device" style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Dispositivo de Micrófono</label>
+            <select id="select-mic-device" style="width: 100%; background: var(--bg-surface); color: var(--text-normal); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px 8px; font-size: 13px;">
+              <option value="">Cargando micrófonos detectados...</option>
+            </select>
+          </div>
+
           <div class="mic-meter-container">
             <div class="mic-meter-bar" id="mic-meter-bar" style="width: 0%;"></div>
-            <div class="mic-meter-threshold-line" id="mic-meter-threshold-line" style="left: 18%;"></div>
+            <div class="mic-meter-threshold-line" id="mic-meter-threshold-line" style="left: 5%;"></div>
           </div>
 
           <div class="form-group" style="margin-top: 10px;">
             <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted);">
               <span>Sensibilidad / Puerta de Ruido</span>
-              <strong id="val-noise-gate">18%</strong>
+              <strong id="val-noise-gate">5%</strong>
             </div>
-            <input type="range" id="slider-noise-gate" min="1" max="80" value="18" class="settings-slider">
+            <input type="range" id="slider-noise-gate" min="1" max="80" value="5" class="settings-slider">
           </div>
+
+          <button type="button" id="btn-test-mic-loopback" class="btn btn-secondary btn-full" style="margin-top: 10px; font-size: 12px;">
+            🎧 Probar Micrófono (Escuchar mi propia voz)
+          </button>
         </div>
 
         <!-- 2. Modo de Transmisión (VAD vs Push-to-Talk) -->
@@ -441,6 +459,79 @@
             <li><strong>Por Internet (desde sus casas):</strong> Abre el archivo <code>compartir-con-amigos.bat</code> en la carpeta de la app para darles un enlace seguro <code>https://...trycloudflare.com</code>.</li>
             <li><strong>En la misma casa (Wi-Fi):</strong> Envíales directamente <code>http://192.168.1.9:3000</code>.</li>
           </ul>
+        </div>
+  <!-- MODAL: Descargar App de Escritorio PC -->
+  <div id="modal-download-app" class="overlay">
+    <div class="modal download-app-modal">
+      <div class="modal-header">
+        <div class="logo-icon">💻🚀</div>
+        <h3>Special Delivery Speak para PC</h3>
+        <button class="btn-close-modal" id="btn-close-download-modal">&times;</button>
+      </div>
+      <div class="download-modal-body">
+        <div class="download-features-grid">
+          <div class="download-feature-card">
+            <span class="feature-icon">🎙️</span>
+            <div>
+              <strong>Cero Permisos de Micrófono</strong>
+              <p>Funciona directo desde Windows sin pedir permisos ni bloqueos en navegadores.</p>
+            </div>
+          </div>
+          <div class="download-feature-card">
+            <span class="feature-icon">⚡</span>
+            <div>
+              <strong>Máximo Rendimiento Gamer</strong>
+              <p>Latencia ultra baja para comunicarte con tu party mientras juegas sin caídas de FPS.</p>
+            </div>
+          </div>
+          <div class="download-feature-card">
+            <span class="feature-icon">🎧</span>
+            <div>
+              <strong>Audio Nativo con Sonidos Discord</strong>
+              <p>Timbre auténtico de Discord al conectar, desconectar y recibir mensajes.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="download-action-area">
+          <a id="btn-direct-download" href="#" class="btn btn-download-giant" target="_blank" rel="noopener noreferrer">
+            <span class="giant-icon">📥</span>
+            <span class="giant-text">
+              <span class="giant-title">Descargar para Windows (.zip)</span>
+              <span class="giant-subtitle" id="download-filesize-info">App Oficial • Lista para usar</span>
+            </span>
+          </a>
+          <p id="download-link-notice" class="download-link-notice hidden">⚠️ Pídele el link de descarga directa al anfitrión o usa el enlace configurado.</p>
+        </div>
+
+        <div class="download-instructions">
+          <h4>🚀 ¿Cómo se usa en 3 pasos?</h4>
+          <div class="steps-compact">
+            <div class="step-compact-item">
+              <span class="step-badge">1</span>
+              <span>Descarga el <code>.zip</code></span>
+            </div>
+            <div class="step-compact-item">
+              <span class="step-badge">2</span>
+              <span>Haz clic derecho y <strong>"Extraer todo"</strong></span>
+            </div>
+            <div class="step-compact-item">
+              <span class="step-badge">3</span>
+              <span>Abre <strong>SpecialDeliverySpeak.exe</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel de Configuración de Link para el Master Admin -->
+        <div id="admin-download-config-area" class="admin-download-config hidden">
+          <div class="admin-config-box">
+            <label for="input-download-url">👑 Configurar enlace de descarga (Google Drive, Mediafire, etc.):</label>
+            <div class="input-inline-btn">
+              <input type="url" id="input-download-url" placeholder="https://drive.google.com/file/d/... o Mediafire">
+              <button type="button" class="btn btn-primary" id="btn-save-download-url">Guardar Link</button>
+            </div>
+            <span id="download-url-feedback" class="feedback-msg hidden">¡Enlace guardado con éxito! 🎉</span>
+          </div>
         </div>
       </div>
     </div>

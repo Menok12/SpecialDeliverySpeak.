@@ -26,8 +26,11 @@ class VoiceEngine {
     this.voiceMode = 'vad'; // 'vad' (activación por voz) o 'ptt' (push-to-talk)
     this.pttActive = false;
     this.pttKey = 'Space';
-    this.noiseGateThreshold = 18; // 0 a 100
+    this.noiseGateThreshold = 5; // 0 a 100 (sensibilidad mejorada para captar todo)
     this.onVolumeMeter = null; // Callback para el vúmetro visual
+    this.selectedDeviceId = null;
+    this.isLoopbackActive = false;
+    this.loopbackGainNode = null;
 
     // DSP Nodes
     this.audioContext = null;
@@ -208,9 +211,19 @@ class VoiceEngine {
   }
 
   // Inicializar captura y cadena DSP de mejora de voz
-  async initLocalMicrophone() {
+  async initLocalMicrophone(deviceId = null) {
+    if (deviceId) {
+      this.selectedDeviceId = deviceId;
+      if (this.rawStream) {
+        this.rawStream.getTracks().forEach(t => t.stop());
+        this.rawStream = null;
+        this.processedStream = null;
+      }
+    }
+
     if (this.processedStream) {
       this.isListenerMode = false;
+      this.isMuted = false;
       return this.processedStream;
     }
 
@@ -224,17 +237,40 @@ class VoiceEngine {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: this.noiseSuppressionEnabled,
-          autoGainControl: true
-        },
-        video: false
-      });
+      let stream = null;
+
+      const baseAudio = {
+        echoCancellation: true,
+        noiseSuppression: this.noiseSuppressionEnabled,
+        autoGainControl: true
+      };
+      if (this.selectedDeviceId) {
+        baseAudio.deviceId = { exact: this.selectedDeviceId };
+      }
+
+      // Intento 1: Con cancelación de eco y mejoras
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: baseAudio,
+          video: false
+        });
+      } catch (errAdv) {
+        console.warn('[Microphone] Filtros avanzados no admitidos por el driver, intentando audio directo:', errAdv);
+        // Intento 2: Fallback simple a audio puro
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: this.selectedDeviceId ? { deviceId: { exact: this.selectedDeviceId } } : true,
+          video: false
+        });
+      }
 
       this.rawStream = stream;
       this.isListenerMode = false;
+      this.isMuted = false;
+
+      // Habilitar pistas de audio
+      this.rawStream.getAudioTracks().forEach(track => {
+        track.enabled = true;
+      });
 
       if (!this.audioContext) {
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -256,7 +292,6 @@ class VoiceEngine {
 
       this.compressor = this.audioContext.createDynamicsCompressor();
 
-      // Aplicar perfil actual
       this.applyDspProfileSettings(this.currentDspProfile);
 
       this.analyser = this.audioContext.createAnalyser();
@@ -275,15 +310,42 @@ class VoiceEngine {
 
       this.setupSpeakingDetector();
 
-      // Si teníamos conexiones activas en modo oyente, agregar los tracks de voz ahora
-      this.peerConnections.forEach((pc) => {
+      // Si la prueba de escucha propia está activa, reconectar loopback
+      if (this.isLoopbackActive && this.loopbackGainNode) {
+        try {
+          this.compressor.connect(this.loopbackGainNode);
+          this.loopbackGainNode.connect(this.audioContext.destination);
+        } catch (e) {}
+      }
+
+      // Quitar estado de silencio visualmente en el dock
+      const btnMic = document.getElementById('btn-toggle-mic');
+      const iconMic = document.getElementById('icon-mic');
+      if (btnMic && iconMic) {
+        btnMic.classList.remove('active-danger');
+        iconMic.textContent = '🎙️';
+        btnMic.title = 'Silenciar Micrófono';
+      }
+
+      // Actualizar pistas en conexiones WebRTC
+      this.peerConnections.forEach((pc, peerSocketId) => {
         try {
           const senders = pc.getSenders();
-          const hasAudio = senders.some(s => s.track && s.track.kind === 'audio');
-          if (!hasAudio && this.processedStream) {
-            this.processedStream.getAudioTracks().forEach(track => {
-              pc.addTrack(track, this.processedStream);
-            });
+          const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+          const newTrack = this.processedStream.getAudioTracks()[0];
+          if (audioSender) {
+            audioSender.replaceTrack(newTrack);
+          } else {
+            pc.addTrack(newTrack, this.processedStream);
+            pc.createOffer().then(offer => {
+              offer.sdp = this.setOpusPreferences(offer.sdp);
+              return pc.setLocalDescription(offer);
+            }).then(() => {
+              this.socket.emit('voice:signal', {
+                to: peerSocketId,
+                signal: pc.localDescription
+              });
+            }).catch(() => {});
           }
         } catch (err) {}
       });
@@ -293,8 +355,48 @@ class VoiceEngine {
     } catch (err) {
       console.warn('[Microphone] No se pudo acceder al micrófono (Modo Oyente activado):', err.name, err.message);
       this.isListenerMode = true;
+      this.isMuted = true;
       throw err;
     }
+  }
+
+  async getAudioDevices() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return [];
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return devices.filter(d => d.kind === 'audioinput');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  toggleMicLoopback() {
+    if (!this.audioContext) {
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume();
+    }
+
+    this.isLoopbackActive = !this.isLoopbackActive;
+
+    if (!this.loopbackGainNode) {
+      this.loopbackGainNode = this.audioContext.createGain();
+      this.loopbackGainNode.gain.value = 1.0;
+    }
+
+    if (this.isLoopbackActive) {
+      if (this.compressor) {
+        this.compressor.connect(this.loopbackGainNode);
+        this.loopbackGainNode.connect(this.audioContext.destination);
+      }
+    } else {
+      if (this.loopbackGainNode) {
+        try { this.loopbackGainNode.disconnect(); } catch (e) {}
+      }
+    }
+
+    return this.isLoopbackActive;
   }
 
   // Perfiles de sonido DSP
@@ -520,8 +622,11 @@ class VoiceEngine {
 
     try {
       await this.initLocalMicrophone();
+      this.isListenerMode = false;
+      this.isMuted = false;
     } catch (e) {
       console.warn('Entrando en modo solo escucha.', e);
+      this.isListenerMode = true;
       this.isMuted = true;
       const btnMic = document.getElementById('btn-toggle-mic');
       const iconMic = document.getElementById('icon-mic');

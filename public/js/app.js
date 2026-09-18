@@ -268,21 +268,92 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnDspProfiles = document.querySelectorAll('.btn-dsp-profile');
   const badgeActiveDsp = document.getElementById('badge-active-dsp');
 
+  const selectMicDevice = document.getElementById('select-mic-device');
+  const btnTestMicLoopback = document.getElementById('btn-test-mic-loopback');
+
+  async function populateMicDevices() {
+    if (!selectMicDevice) return;
+    try {
+      const devices = await voiceEngine.getAudioDevices();
+      selectMicDevice.innerHTML = '';
+      if (devices.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Micrófono por defecto del sistema';
+        selectMicDevice.appendChild(opt);
+        return;
+      }
+      devices.forEach((d, idx) => {
+        const opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = d.label || `Micrófono ${idx + 1}`;
+        if (voiceEngine.selectedDeviceId === d.deviceId) opt.selected = true;
+        selectMicDevice.appendChild(opt);
+      });
+    } catch (e) {}
+  }
+
+  if (selectMicDevice) {
+    selectMicDevice.addEventListener('change', async () => {
+      const devId = selectMicDevice.value;
+      if (devId) {
+        await voiceEngine.initLocalMicrophone(devId);
+      }
+    });
+  }
+
+  if (btnTestMicLoopback) {
+    btnTestMicLoopback.addEventListener('click', async () => {
+      try {
+        await voiceEngine.initLocalMicrophone();
+        const active = voiceEngine.toggleMicLoopback();
+        if (active) {
+          btnTestMicLoopback.textContent = '🔴 Dejar de escuchar (Prueba Activa)';
+          btnTestMicLoopback.classList.add('btn-primary');
+          btnTestMicLoopback.classList.remove('btn-secondary');
+        } else {
+          btnTestMicLoopback.textContent = '🎧 Probar Micrófono (Escuchar mi propia voz)';
+          btnTestMicLoopback.classList.remove('btn-primary');
+          btnTestMicLoopback.classList.add('btn-secondary');
+        }
+      } catch (e) {
+        alert('No se pudo activar la prueba. Asegúrate de dar permiso de micrófono.');
+      }
+    });
+  }
+
   // Abrir / Cerrar modal de ajustes de voz
   if (btnVoiceSettings && modalVoiceSettings) {
     btnVoiceSettings.addEventListener('click', async () => {
+      if (voiceEngine.audioContext && voiceEngine.audioContext.state === 'suspended') {
+        await voiceEngine.audioContext.resume();
+      }
       try {
         await voiceEngine.initLocalMicrophone();
       } catch (e) {}
+      await populateMicDevices();
       modalVoiceSettings.classList.add('active');
     });
 
     if (btnCloseVoiceSettings) {
       btnCloseVoiceSettings.addEventListener('click', () => {
+        voiceEngine.toggleMicLoopback(false);
+        if (btnTestMicLoopback) {
+          btnTestMicLoopback.textContent = '🎧 Probar Micrófono (Escuchar mi propia voz)';
+          btnTestMicLoopback.classList.remove('btn-primary');
+          btnTestMicLoopback.classList.add('btn-secondary');
+        }
         modalVoiceSettings.classList.remove('active');
       });
     }
   }
+
+  // Auto-resume global de AudioContext en cualquier interacción del usuario
+  window.addEventListener('click', () => {
+    if (voiceEngine.audioContext && voiceEngine.audioContext.state === 'suspended') {
+      voiceEngine.audioContext.resume().catch(() => {});
+    }
+  });
 
   // Actualización del vúmetro en vivo desde Web Audio
   voiceEngine.onVolumeMeter = (level, isSpeaking) => {
@@ -744,6 +815,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         item.addEventListener('click', () => {
+          if (voiceEngine.audioContext && voiceEngine.audioContext.state === 'suspended') {
+            voiceEngine.audioContext.resume().catch(() => {});
+          }
           voiceEngine.joinVoiceChannel(chan.id, chan.name);
         });
 
@@ -1115,4 +1189,123 @@ document.addEventListener('DOMContentLoaded', () => {
     createMemberSection('🟢 EN LÍNEA', regularMembers);
   }
   window.renderMembersList = renderMembersList;
+
+  // ===================== SISTEMA DE DESCARGA APP PC =====================
+  const modalDownloadApp = document.getElementById('modal-download-app');
+  const btnCloseDownload = document.getElementById('btn-close-download-modal');
+  const btnTopDownload = document.getElementById('btn-header-download');
+  const btnLoginDownload = document.getElementById('btn-login-download');
+  const btnBannerDownload = document.getElementById('btn-banner-download');
+  const btnDirectDownload = document.getElementById('btn-direct-download');
+  const downloadNotice = document.getElementById('download-link-notice');
+  const adminDownloadConfig = document.getElementById('admin-download-config-area');
+  const inputDownloadUrl = document.getElementById('input-download-url');
+  const btnSaveDownloadUrl = document.getElementById('btn-save-download-url');
+  const downloadUrlFeedback = document.getElementById('download-url-feedback');
+
+  let currentAppDownloadUrl = '';
+
+  // Si estamos dentro de la app Electron (PC), ajustar título
+  const isRunningInElectron = /Electron/i.test(navigator.userAgent);
+  if (isRunningInElectron) {
+    if (btnTopDownload) btnTopDownload.title = 'Compartir / Configurar enlace de la App';
+    const authBanner = document.getElementById('auth-download-banner');
+    if (authBanner) authBanner.style.display = 'none';
+  }
+
+  function openDownloadModal() {
+    if (modalDownloadApp) modalDownloadApp.classList.add('active');
+    updateDownloadBtnState();
+  }
+
+  function closeDownloadModal() {
+    if (modalDownloadApp) modalDownloadApp.classList.remove('active');
+  }
+
+  function updateDownloadBtnState() {
+    if (!btnDirectDownload) return;
+    if (currentAppDownloadUrl && currentAppDownloadUrl.startsWith('http')) {
+      btnDirectDownload.href = currentAppDownloadUrl;
+      btnDirectDownload.target = '_blank';
+      if (downloadNotice) downloadNotice.classList.add('hidden');
+    } else {
+      btnDirectDownload.href = '#';
+      btnDirectDownload.target = '_self';
+      if (downloadNotice) downloadNotice.classList.remove('hidden');
+    }
+
+    // Mostrar configuración si el usuario actual es Master Admin
+    if (myUser && myUser.isMasterAdmin && adminDownloadConfig) {
+      adminDownloadConfig.classList.remove('hidden');
+      if (inputDownloadUrl && !inputDownloadUrl.value) {
+        inputDownloadUrl.value = currentAppDownloadUrl || '';
+      }
+    } else if (adminDownloadConfig) {
+      adminDownloadConfig.classList.add('hidden');
+    }
+  }
+
+  // Obtener URL de descarga actual del servidor
+  fetch('/api/app-download-url')
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.url) {
+        currentAppDownloadUrl = data.url;
+        updateDownloadBtnState();
+      }
+    })
+    .catch(() => {});
+
+  socket.on('app:download_url_updated', ({ url }) => {
+    currentAppDownloadUrl = url;
+    updateDownloadBtnState();
+  });
+
+  if (btnTopDownload) btnTopDownload.addEventListener('click', openDownloadModal);
+  if (btnLoginDownload) btnLoginDownload.addEventListener('click', openDownloadModal);
+  if (btnBannerDownload) btnBannerDownload.addEventListener('click', openDownloadModal);
+  if (btnCloseDownload) btnCloseDownload.addEventListener('click', closeDownloadModal);
+
+  if (btnDirectDownload) {
+    btnDirectDownload.addEventListener('click', (e) => {
+      if (!currentAppDownloadUrl || !currentAppDownloadUrl.startsWith('http')) {
+        e.preventDefault();
+        alert('El enlace directo para Windows está siendo configurado por el Administrador. ¡Pídeselo directamente en el chat general!');
+      }
+    });
+  }
+
+  if (btnSaveDownloadUrl) {
+    btnSaveDownloadUrl.addEventListener('click', async () => {
+      const newUrl = inputDownloadUrl.value.trim();
+      const masterPass = prompt('Introduce la Contraseña de Master Admin para guardar:');
+      if (!masterPass) return;
+
+      try {
+        const resp = await fetch('/api/app-download-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: newUrl, masterPassword: masterPass })
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+          currentAppDownloadUrl = newUrl;
+          updateDownloadBtnState();
+          if (downloadUrlFeedback) {
+            downloadUrlFeedback.classList.remove('hidden');
+            setTimeout(() => downloadUrlFeedback.classList.add('hidden'), 3500);
+          }
+        } else {
+          alert('Error: ' + (result.error || 'No autorizado'));
+        }
+      } catch (err) {
+        alert('Error conectando al servidor');
+      }
+    });
+  }
+
+  // Si la URL viene con ?openDownload=true, abrir automáticamente
+  if (new URLSearchParams(window.location.search).get('openDownload') === 'true') {
+    openDownloadModal();
+  }
 });

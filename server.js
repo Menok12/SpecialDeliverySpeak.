@@ -19,7 +19,53 @@ const PORT = process.env.PORT || 3000;
 const MASTER_ADMIN_PASSWORD = process.env.MASTER_ADMIN_PASSWORD || 'master123';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Configuración persistente del enlace de descarga para la App de Windows
+const DOWNLOAD_CONFIG_FILE = path.join(__dirname, 'download_config.json');
+
+function getAppDownloadUrl() {
+  try {
+    if (fs.existsSync(DOWNLOAD_CONFIG_FILE)) {
+      const data = JSON.parse(fs.readFileSync(DOWNLOAD_CONFIG_FILE, 'utf8'));
+      if (data && data.url) return data.url;
+    }
+  } catch (e) {}
+  return process.env.APP_DOWNLOAD_URL || '';
+}
+
+function setAppDownloadUrl(url) {
+  try {
+    fs.writeFileSync(DOWNLOAD_CONFIG_FILE, JSON.stringify({ url }, null, 2));
+    return true;
+  } catch (e) {
+    console.error('[Error guardando link de descarga]', e);
+    return false;
+  }
+}
+
+app.get('/api/app-download-url', (req, res) => {
+  res.json({ url: getAppDownloadUrl() });
+});
+
+app.post('/api/app-download-url', (req, res) => {
+  const { url, masterPassword } = req.body;
+  if (masterPassword !== MASTER_ADMIN_PASSWORD) {
+    return res.status(403).json({ error: 'Clave Master Admin requerida' });
+  }
+  setAppDownloadUrl(url);
+  io.emit('app:download_url_updated', { url });
+  res.json({ success: true, url });
+});
+
+app.get('/descargar', (req, res) => {
+  const url = getAppDownloadUrl();
+  if (url && url.startsWith('http')) {
+    return res.redirect(url);
+  }
+  res.redirect('/?openDownload=true');
+});
 
 // Archivos de persistencia en disco
 const CHANNELS_FILE = path.join(__dirname, 'channels.json');

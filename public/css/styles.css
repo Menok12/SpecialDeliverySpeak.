@@ -1678,5 +1678,263 @@ body {
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
+/* === BOTONES Y MODAL DE DESCARGA APP PC === */
+.btn-top-download {
+  background: linear-gradient(135deg, #5865F2, #3b44a9);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: var(--transition);
+  box-shadow: 0 2px 6px rgba(88, 101, 242, 0.35);
+}
+
+.btn-top-download:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(88, 101, 242, 0.55);
+  background: linear-gradient(135deg, #4752c4, #323990);
+}
+
+.auth-download-banner {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: rgba(88, 101, 242, 0.12);
+  border: 1px solid rgba(88, 101, 242, 0.35);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.auth-download-text {
+  font-size: 12px;
+  color: var(--text-normal);
+  font-weight: 500;
+}
+
+.btn-download-pill {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  padding: 6px 13px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+  box-shadow: 0 2px 8px rgba(88, 101, 242, 0.4);
+}
+
+.btn-download-pill:hover {
+  background: var(--accent-primary-hover);
+  transform: scale(1.04);
+}
+
+.btn-download-inline {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: var(--transition);
+}
+
+.btn-download-inline:hover {
+  background: var(--accent-primary-hover);
+  transform: translateY(-1px);
+}
+
+.download-app-modal {
+  max-width: 520px;
+}
+
+.download-features-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 16px 0;
+}
+
+.download-feature-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: var(--bg-surface);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.download-feature-card .feature-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.download-feature-card strong {
+  display: block;
+  font-size: 13px;
+  color: var(--text-header);
+  margin-bottom: 2px;
+}
+
+.download-feature-card p {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.download-action-area {
+  margin: 18px 0 14px 0;
+  text-align: center;
+}
+
+.btn-download-giant {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #23a55a, #1a8244);
+  color: white !important;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(35, 165, 90, 0.4);
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.btn-download-giant:hover {
+  background: linear-gradient(135deg, #1f9450, #166d39);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(35, 165, 90, 0.6);
+}
+
+.giant-icon {
+  font-size: 28px;
+}
+
+.giant-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.giant-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.giant-subtitle {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.download-link-notice {
+  font-size: 12px;
+  color: var(--accent-warning);
+  margin-top: 8px;
+  background: rgba(254, 231, 92, 0.1);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.download-instructions {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.download-instructions h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.steps-compact {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.step-compact-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-normal);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.step-badge {
+  background: var(--accent-primary);
+  color: white;
+  font-weight: 800;
+  font-size: 10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admin-download-config {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-config-box label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #FEE75C;
+  margin-bottom: 6px;
+}
+
+.input-inline-btn {
+  display: flex;
+  gap: 8px;
+}
+
+.input-inline-btn input {
+  flex: 1;
+  background-color: var(--bg-input);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-normal);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.input-inline-btn input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+
 
 
