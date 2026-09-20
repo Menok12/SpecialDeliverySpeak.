@@ -18,6 +18,70 @@ document.addEventListener('DOMContentLoaded', () => {
   let voiceState = {}; // channelId -> array of users
   let messagesByChannel = {};
 
+  // ===================== SISTEMA DE ACTUALIZACIÓN EN VIVO =====================
+  const CURRENT_APP_VERSION = '1.1.0';
+  let isUpdateBannerDismissed = false;
+
+  const updateBanner = document.getElementById('update-notification-banner');
+  const updateVersionLabel = document.getElementById('update-version-label');
+  const btnUpdateReload = document.getElementById('btn-update-reload');
+  const btnUpdateDownload = document.getElementById('btn-update-download');
+  const btnUpdateDismiss = document.getElementById('btn-update-dismiss');
+
+  function showUpdateNotification(newVersion, downloadUrl) {
+    if (isUpdateBannerDismissed) return;
+    if (!updateBanner) return;
+
+    if (updateVersionLabel && newVersion) {
+      updateVersionLabel.textContent = 'v' + newVersion;
+    }
+
+    if (btnUpdateDownload && downloadUrl) {
+      btnUpdateDownload.href = downloadUrl;
+      btnUpdateDownload.classList.remove('hidden');
+    }
+
+    updateBanner.classList.remove('hidden');
+  }
+
+  if (btnUpdateReload) {
+    btnUpdateReload.addEventListener('click', () => {
+      btnUpdateReload.disabled = true;
+      btnUpdateReload.textContent = '⚡ Actualizando...';
+      try {
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            for (let name of names) caches.delete(name);
+          });
+        }
+      } catch (e) {}
+      setTimeout(() => {
+        window.location.reload(true);
+      }, 250);
+    });
+  }
+
+  if (btnUpdateDismiss) {
+    btnUpdateDismiss.addEventListener('click', () => {
+      isUpdateBannerDismissed = true;
+      if (updateBanner) updateBanner.classList.add('hidden');
+    });
+  }
+
+  async function checkForUpdates() {
+    try {
+      const res = await fetch('/api/version?t=' + Date.now());
+      if (res.ok) {
+        const data = await res.json();
+        if (data.version && data.version !== CURRENT_APP_VERSION) {
+          showUpdateNotification(data.version, data.downloadUrl);
+        }
+      }
+    } catch (e) {}
+  }
+
+  setInterval(checkForUpdates, 120000);
+
   // ===================== SISTEMA DE CUENTAS & AUTO-LOGIN =====================
   const loginOverlay = document.getElementById('login-overlay');
   const tabBtnLogin = document.getElementById('tab-btn-login');
@@ -317,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
           btnTestMicLoopback.classList.add('btn-secondary');
         }
       } catch (e) {
-        alert('No se pudo activar la prueba. Asegúrate de dar permiso de micrófono.');
+        alert('🎧 No se pudo activar la prueba. Por favor, asegúrate de que tus auriculares con micrófono estén conectados a la computadora.');
       }
     });
   }
@@ -477,12 +541,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnRetryMic = document.getElementById('btn-retry-mic');
   const btnRequestMic = document.getElementById('btn-request-mic');
 
+  function handleMicError(err) {
+    const isElectron = /Electron/i.test(navigator.userAgent);
+    if (err && (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError')) {
+      alert('🎧 No se detectó ningún micrófono conectado a tu computadora.\n\nPor favor, conecta tus auriculares con micrófono o micrófono USB a la PC para poder hablar.');
+    } else if (isElectron) {
+      alert('No se pudo acceder al micrófono. Por favor, asegúrate de que tus auriculares o micrófono estén conectados a la PC.');
+    } else {
+      if (modalMicGuide) modalMicGuide.classList.add('active');
+    }
+  }
+
   if (btnRequestMic) {
     btnRequestMic.addEventListener('click', async () => {
       try {
         await voiceEngine.initLocalMicrophone();
       } catch (err) {
-        if (modalMicGuide) modalMicGuide.classList.add('active');
+        handleMicError(err);
       }
     });
   }
@@ -497,7 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await voiceEngine.initLocalMicrophone();
         if (modalMicGuide) modalMicGuide.classList.remove('active');
       } catch (err) {
-        alert('El navegador aún no permite el micrófono. Haz clic en el icono 🔒 del candado en la barra URL de tu navegador y pon "Permitir", luego pulsa aquí de nuevo.');
+        handleMicError(err);
       }
     });
   }
@@ -520,6 +595,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const defaultChan = channels.find(c => c.type === 'text');
     if (defaultChan) {
       selectTextChannel(defaultChan.id);
+    }
+
+    // Verificar si hay versión nueva reportada por el servidor
+    if (data.appVersion && data.appVersion !== CURRENT_APP_VERSION) {
+      showUpdateNotification(data.appVersion, data.downloadUrl);
+    }
+  });
+
+  socket.on('app:version_updated', (data) => {
+    if (data && data.version && data.version !== CURRENT_APP_VERSION) {
+      showUpdateNotification(data.version, data.downloadUrl);
     }
   });
 
@@ -567,18 +653,34 @@ document.addEventListener('DOMContentLoaded', () => {
     voiceState = newVoiceState;
     renderChannelsList();
     renderMembersList();
+    renderVoiceStage();
   });
 
-  // ILUMINACIÓN EN VERDE NEÓN DE AVATAR Y NOMBRE AL HABLAR
-  socket.on('voice:user_speaking', ({ socketId, isSpeaking }) => {
-    // Iluminar avatar en canal de voz
+  // ILUMINACIÓN EN VERDE NEÓN (O CIAN SI ES CALLER) AL HABLAR
+  socket.on('voice:user_speaking', ({ socketId, isSpeaking, isCaller, username }) => {
+    // Banner global en pantalla si habla un Caller
+    const callerBanner = document.getElementById('caller-broadcast-banner');
+    const callerBannerName = document.getElementById('caller-banner-name');
+    if (callerBanner && callerBannerName) {
+      if (isCaller && isSpeaking) {
+        callerBannerName.textContent = username || 'Caller';
+        callerBanner.classList.remove('hidden');
+      } else if (isCaller && !isSpeaking) {
+        callerBanner.classList.add('hidden');
+      }
+    }
+
+    // Iluminar avatar en canal de voz y voice-stage
     const avatarEls = document.querySelectorAll(`[data-voice-avatar-socket="${socketId}"]`);
     avatarEls.forEach(el => {
-      if (isSpeaking) el.classList.add('speaking');
-      else el.classList.remove('speaking');
+      if (isSpeaking) {
+        el.classList.add(isCaller ? 'caller-speaking' : 'speaking');
+      } else {
+        el.classList.remove('speaking', 'caller-speaking');
+      }
     });
 
-    // Iluminar NOMBRE en canal de voz
+    // Iluminar NOMBRE en canal de voz y voice-stage
     const voiceNameEls = document.querySelectorAll(`[data-voice-name-socket="${socketId}"]`);
     voiceNameEls.forEach(el => {
       if (isSpeaking) el.classList.add('speaking');
@@ -636,9 +738,21 @@ document.addEventListener('DOMContentLoaded', () => {
         crown.textContent = '👑';
         nameEl.appendChild(crown);
       }
+      if (myUser.isCaller) {
+        const callerCrown = document.createElement('span');
+        callerCrown.className = 'caller-badge-crown';
+        callerCrown.textContent = ' 📢';
+        callerCrown.title = 'Rol: Caller (Transmisión Global a todos los canales)';
+        nameEl.appendChild(callerCrown);
+      }
     }
     if (roleEl) {
-      if (myUser.isMasterAdmin) {
+      if (myUser.isCaller) {
+        const baseRole = myUser.isMasterAdmin ? '👑⭐ Super Admin' : (myUser.isAdmin ? '👑 Admin' : 'Miembro');
+        roleEl.textContent = `${baseRole} • 📢 Caller`;
+        roleEl.style.color = '#00B0F4';
+        roleEl.style.fontWeight = '700';
+      } else if (myUser.isMasterAdmin) {
         roleEl.textContent = '👑⭐ Super Admin';
         roleEl.style.color = '#FEE75C';
         roleEl.style.fontWeight = '800';
@@ -848,6 +962,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (u.isAdmin) {
               name.innerHTML += ' 👑';
             }
+            if (u.isCaller) {
+              name.innerHTML += ' 📢';
+            }
 
             const statusIcons = document.createElement('div');
             statusIcons.className = 'voice-user-status-icons';
@@ -857,6 +974,12 @@ document.addEventListener('DOMContentLoaded', () => {
             row.appendChild(avatar);
             row.appendChild(name);
             row.appendChild(statusIcons);
+
+            // Clic derecho para menú contextual
+            row.addEventListener('contextmenu', (e) => {
+              e.preventDefault();
+              openContextMenu(e, u, u.id);
+            });
 
             // Controles de audio individuales
             if (u.id !== socket.id) {
@@ -1043,6 +1166,13 @@ document.addEventListener('DOMContentLoaded', () => {
       header.appendChild(badge);
     }
 
+    if (msg.isCaller) {
+      const badge = document.createElement('span');
+      badge.className = 'caller-badge';
+      badge.textContent = '📢 CALLER';
+      header.appendChild(badge);
+    }
+
     const time = document.createElement('span');
     time.className = 'message-time';
     time.textContent = msg.timestamp;
@@ -1130,6 +1260,14 @@ document.addEventListener('DOMContentLoaded', () => {
           nameRow.appendChild(crown);
         }
 
+        if (u.isCaller) {
+          const callerCrown = document.createElement('span');
+          callerCrown.className = 'caller-badge-crown';
+          callerCrown.textContent = ' 📢';
+          callerCrown.title = 'Rol: Caller (Transmisión Global a todos los canales)';
+          nameRow.appendChild(callerCrown);
+        }
+
         const subtext = document.createElement('span');
         subtext.className = 'member-subtext';
         if (u.currentVoiceChannel) {
@@ -1144,6 +1282,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         item.appendChild(avatar);
         item.appendChild(details);
+
+        // Clic derecho para menú contextual
+        item.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          openContextMenu(e, u, u.id);
+        });
 
         if (adminManager.isMasterAdmin && u.id !== socket.id && !u.isMasterAdmin) {
           const quickActions = document.createElement('div');
@@ -1203,7 +1347,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSaveDownloadUrl = document.getElementById('btn-save-download-url');
   const downloadUrlFeedback = document.getElementById('download-url-feedback');
 
-  let currentAppDownloadUrl = '';
+  let currentAppDownloadUrl = 'https://drive.google.com/file/d/1ZEyR_z44AheeCNDIkMlFmLbSp9jPqtGI/view?usp=sharing';
 
   // Si estamos dentro de la app Electron (PC), ajustar título
   const isRunningInElectron = /Electron/i.test(navigator.userAgent);
@@ -1224,21 +1368,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateDownloadBtnState() {
     if (!btnDirectDownload) return;
-    if (currentAppDownloadUrl && currentAppDownloadUrl.startsWith('http')) {
-      btnDirectDownload.href = currentAppDownloadUrl;
-      btnDirectDownload.target = '_blank';
-      if (downloadNotice) downloadNotice.classList.add('hidden');
-    } else {
-      btnDirectDownload.href = '#';
-      btnDirectDownload.target = '_self';
-      if (downloadNotice) downloadNotice.classList.remove('hidden');
-    }
+    const effectiveUrl = (currentAppDownloadUrl && currentAppDownloadUrl.startsWith('http')) 
+      ? currentAppDownloadUrl 
+      : 'https://drive.google.com/file/d/1ZEyR_z44AheeCNDIkMlFmLbSp9jPqtGI/view?usp=sharing';
+      
+    btnDirectDownload.href = effectiveUrl;
+    btnDirectDownload.target = '_blank';
+    if (downloadNotice) downloadNotice.classList.add('hidden');
 
     // Mostrar configuración si el usuario actual es Master Admin
     if (myUser && myUser.isMasterAdmin && adminDownloadConfig) {
       adminDownloadConfig.classList.remove('hidden');
       if (inputDownloadUrl && !inputDownloadUrl.value) {
-        inputDownloadUrl.value = currentAppDownloadUrl || '';
+        inputDownloadUrl.value = effectiveUrl;
       }
     } else if (adminDownloadConfig) {
       adminDownloadConfig.classList.add('hidden');
@@ -1261,17 +1403,19 @@ document.addEventListener('DOMContentLoaded', () => {
     updateDownloadBtnState();
   });
 
-  if (btnTopDownload) btnTopDownload.addEventListener('click', openDownloadModal);
-  if (btnLoginDownload) btnLoginDownload.addEventListener('click', openDownloadModal);
-  if (btnBannerDownload) btnBannerDownload.addEventListener('click', openDownloadModal);
   if (btnCloseDownload) btnCloseDownload.addEventListener('click', closeDownloadModal);
+  if (modalDownloadApp) {
+    modalDownloadApp.addEventListener('click', (e) => {
+      if (e.target === modalDownloadApp) closeDownloadModal();
+    });
+  }
 
   if (btnDirectDownload) {
     btnDirectDownload.addEventListener('click', (e) => {
-      if (!currentAppDownloadUrl || !currentAppDownloadUrl.startsWith('http')) {
-        e.preventDefault();
-        alert('El enlace directo para Windows está siendo configurado por el Administrador. ¡Pídeselo directamente en el chat general!');
-      }
+      const targetUrl = (currentAppDownloadUrl && currentAppDownloadUrl.startsWith('http')) 
+        ? currentAppDownloadUrl 
+        : 'https://drive.google.com/file/d/1ZEyR_z44AheeCNDIkMlFmLbSp9jPqtGI/view?usp=sharing';
+      window.open(targetUrl, '_blank');
     });
   }
 
@@ -1307,5 +1451,302 @@ document.addEventListener('DOMContentLoaded', () => {
   // Si la URL viene con ?openDownload=true, abrir automáticamente
   if (new URLSearchParams(window.location.search).get('openDownload') === 'true') {
     openDownloadModal();
+  }
+
+  // ===================== ESCENARIO DE SALA DE VOZ (VOICE STAGE) =====================
+  const voiceStage = document.getElementById('voice-stage');
+  const voiceStageChannelName = document.getElementById('voice-stage-channel-name');
+  const voiceStageCount = document.getElementById('voice-stage-count');
+  const voiceStageGrid = document.getElementById('voice-stage-grid');
+
+  function renderVoiceStage() {
+    if (!voiceStage || !voiceStageGrid) return;
+
+    if (!voiceEngine.currentChannelId) {
+      voiceStage.classList.add('hidden');
+      return;
+    }
+
+    voiceStage.classList.remove('hidden');
+    if (voiceStageChannelName) {
+      voiceStageChannelName.textContent = `🔊 ${voiceEngine.currentChannelName || 'SALA DE VOZ'}`;
+    }
+
+    const currentVoiceUsers = voiceState[voiceEngine.currentChannelId] || [];
+    if (voiceStageCount) {
+      voiceStageCount.textContent = `${currentVoiceUsers.length} participante${currentVoiceUsers.length === 1 ? '' : 's'}`;
+    }
+
+    voiceStageGrid.innerHTML = '';
+
+    currentVoiceUsers.forEach(u => {
+      const card = document.createElement('div');
+      card.className = 'voice-stage-card';
+      card.dataset.socketId = u.id;
+      card.dataset.username = u.username;
+
+      // Status icons (mute/deafen)
+      const statusIcons = document.createElement('div');
+      statusIcons.className = 'voice-stage-status-icons';
+      if (u.isMuted) statusIcons.innerHTML += '🎙️🚫';
+      if (u.isDeafened) statusIcons.innerHTML += '🔇';
+      card.appendChild(statusIcons);
+
+      // Avatar con aro de habla dinámico
+      const avatar = document.createElement('div');
+      avatar.className = `voice-stage-avatar ${u.isSpeaking ? (u.isCaller ? 'caller-speaking' : 'speaking') : ''}`;
+      avatar.dataset.voiceAvatarSocket = u.id;
+      avatar.textContent = u.avatar || '📦';
+      avatar.style.backgroundColor = (u.color || '#5865F2') + '33';
+      card.appendChild(avatar);
+
+      // Nickname (Grande y claramente visible)
+      const name = document.createElement('div');
+      name.className = `voice-stage-nick ${u.isSpeaking ? 'speaking' : ''}`;
+      name.dataset.voiceNameSocket = u.id;
+      name.textContent = u.username;
+      name.style.color = u.color || '#f2f3f5';
+      card.appendChild(name);
+
+      // Badges
+      const badges = document.createElement('div');
+      badges.className = 'voice-stage-badges';
+      if (u.isMasterAdmin) {
+        const b = document.createElement('span');
+        b.className = 'admin-badge';
+        b.style.background = 'linear-gradient(135deg, #FEE75C, #F39C12)';
+        b.style.color = '#111';
+        b.textContent = '👑⭐ MASTER';
+        badges.appendChild(b);
+      } else if (u.isAdmin) {
+        const b = document.createElement('span');
+        b.className = 'admin-badge';
+        b.textContent = '👑 ADMIN';
+        badges.appendChild(b);
+      }
+      if (u.isCaller) {
+        const b = document.createElement('span');
+        b.className = 'caller-badge';
+        b.textContent = '📢 CALLER';
+        badges.appendChild(b);
+      }
+      card.appendChild(badges);
+
+      // Clic derecho para menú contextual
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        openContextMenu(e, u, u.id);
+      });
+
+      voiceStageGrid.appendChild(card);
+    });
+  }
+  window.renderVoiceStage = renderVoiceStage;
+
+  // ===================== MENÚ CONTEXTUAL FLOTANTE (CLIC DERECHO) =====================
+  const contextMenu = document.getElementById('user-context-menu');
+  const ctxUserAvatar = document.getElementById('ctx-user-avatar');
+  const ctxUsername = document.getElementById('ctx-username');
+  const ctxUserRole = document.getElementById('ctx-user-role');
+  const ctxVolContainer = document.getElementById('ctx-vol-container');
+  const ctxVolSlider = document.getElementById('ctx-vol-slider');
+  const ctxVolVal = document.getElementById('ctx-vol-val');
+
+  const ctxBtnMute = document.getElementById('ctx-btn-mute');
+  const ctxMuteIcon = document.getElementById('ctx-mute-icon');
+  const ctxMuteText = document.getElementById('ctx-mute-text');
+  const ctxBtnCaller = document.getElementById('ctx-btn-caller');
+  const ctxCallerText = document.getElementById('ctx-caller-text');
+  const ctxBtnPromote = document.getElementById('ctx-btn-promote');
+  const ctxPromoteText = document.getElementById('ctx-promote-text');
+  const ctxBtnKickVoice = document.getElementById('ctx-btn-kick-voice');
+  const ctxBtnKickServer = document.getElementById('ctx-btn-kick-server');
+  const ctxBtnBan = document.getElementById('ctx-btn-ban');
+
+  let activeCtxUser = null;
+  let activeCtxSocketId = null;
+
+  function openContextMenu(e, userObj, socketId) {
+    if (!contextMenu) return;
+
+    activeCtxUser = userObj;
+    activeCtxSocketId = socketId;
+
+    const isSelf = myUser && (socketId === socket.id || userObj.username === myUser.username);
+    const hasAdmin = adminManager.isAdmin || adminManager.isMasterAdmin;
+    const isMaster = adminManager.isMasterAdmin;
+
+    // Header del menú
+    if (ctxUserAvatar) {
+      ctxUserAvatar.textContent = userObj.avatar || '📦';
+      ctxUserAvatar.style.backgroundColor = (userObj.color || '#5865F2') + '33';
+    }
+    if (ctxUsername) {
+      ctxUsername.textContent = userObj.username;
+      ctxUsername.style.color = userObj.color || '#f2f3f5';
+    }
+    if (ctxUserRole) {
+      let roleDesc = userObj.isMasterAdmin ? '👑⭐ Super Admin' : (userObj.isAdmin ? '👑 Administrador' : 'Miembro');
+      if (userObj.isCaller) roleDesc += ' • 📢 Caller';
+      ctxUserRole.textContent = roleDesc;
+    }
+
+    // Slider de volumen individual
+    if (ctxVolContainer && ctxVolSlider && ctxVolVal) {
+      if (isSelf) {
+        ctxVolContainer.style.display = 'none';
+      } else {
+        ctxVolContainer.style.display = 'flex';
+        const curVol = voiceEngine.getUserVolume(socketId);
+        ctxVolSlider.value = curVol;
+        ctxVolVal.textContent = `${Math.round(curVol * 100)}%`;
+      }
+    }
+
+    // Botón Silenciar Servidor
+    if (ctxBtnMute) {
+      if (hasAdmin && !isSelf) {
+        ctxBtnMute.style.display = 'flex';
+        if (userObj.isMuted) {
+          ctxMuteIcon.textContent = '🎙️';
+          ctxMuteText.textContent = 'Desilenciar en Servidor';
+        } else {
+          ctxMuteIcon.textContent = '🎙️🚫';
+          ctxMuteText.textContent = 'Silenciar en Servidor';
+        }
+      } else {
+        ctxBtnMute.style.display = 'none';
+      }
+    }
+
+    // Botón Asignar / Quitar Caller
+    if (ctxBtnCaller) {
+      if (hasAdmin && !isSelf) {
+        ctxBtnCaller.style.display = 'flex';
+        ctxCallerText.textContent = userObj.isCaller ? 'Quitar Rol Caller' : 'Asignar Rol: CALLER (Voz Global)';
+      } else {
+        ctxBtnCaller.style.display = 'none';
+      }
+    }
+
+    // Botón Promover Administrador (Solo Master Admin)
+    if (ctxBtnPromote) {
+      if (isMaster && !isSelf && !userObj.isMasterAdmin) {
+        ctxBtnPromote.style.display = 'flex';
+        ctxPromoteText.textContent = userObj.isAdmin ? 'Quitar Administrador' : 'Hacer Administrador';
+      } else {
+        ctxBtnPromote.style.display = 'none';
+      }
+    }
+
+    // Botones de expulsión
+    const inVoice = !!userObj.currentVoiceChannel;
+    if (ctxBtnKickVoice) {
+      ctxBtnKickVoice.style.display = (hasAdmin && !isSelf && inVoice) ? 'flex' : 'none';
+    }
+    if (ctxBtnKickServer) {
+      ctxBtnKickServer.style.display = (hasAdmin && !isSelf && !userObj.isMasterAdmin) ? 'flex' : 'none';
+    }
+    if (ctxBtnBan) {
+      ctxBtnBan.style.display = (isMaster && !isSelf && !userObj.isMasterAdmin) ? 'flex' : 'none';
+    }
+
+    // Mostrar y posicionar menú adaptado a pantalla
+    contextMenu.classList.remove('hidden');
+    const menuWidth = 230;
+    const menuHeight = 280;
+    let posX = e.clientX;
+    let posY = e.clientY;
+
+    if (posX + menuWidth > window.innerWidth) {
+      posX = window.innerWidth - menuWidth - 10;
+    }
+    if (posY + menuHeight > window.innerHeight) {
+      posY = window.innerHeight - menuHeight - 10;
+    }
+
+    contextMenu.style.left = `${Math.max(10, posX)}px`;
+    contextMenu.style.top = `${Math.max(10, posY)}px`;
+  }
+
+  function closeContextMenu() {
+    if (contextMenu) contextMenu.classList.add('hidden');
+    activeCtxUser = null;
+    activeCtxSocketId = null;
+  }
+
+  // Cerrar menú con clic o tecla Escape
+  document.addEventListener('click', (e) => {
+    if (contextMenu && !contextMenu.contains(e.target)) {
+      closeContextMenu();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeContextMenu();
+  });
+
+  // Slider de volumen en menú contextual
+  if (ctxVolSlider && ctxVolVal) {
+    ctxVolSlider.addEventListener('input', (e) => {
+      e.stopPropagation();
+      if (!activeCtxSocketId) return;
+      const vol = parseFloat(ctxVolSlider.value);
+      voiceEngine.setUserVolume(activeCtxSocketId, vol);
+      ctxVolVal.textContent = `${Math.round(vol * 100)}%`;
+    });
+  }
+
+  // Eventos de botones del menú contextual
+  if (ctxBtnMute) {
+    ctxBtnMute.addEventListener('click', () => {
+      if (!activeCtxUser || !activeCtxSocketId) return;
+      if (activeCtxUser.isMuted) {
+        adminManager.unmuteVoiceUser(activeCtxSocketId, activeCtxUser.username);
+      } else {
+        adminManager.muteVoiceUser(activeCtxSocketId, activeCtxUser.username);
+      }
+      closeContextMenu();
+    });
+  }
+
+  if (ctxBtnCaller) {
+    ctxBtnCaller.addEventListener('click', () => {
+      if (!activeCtxUser || !activeCtxSocketId) return;
+      adminManager.setCallerUser(activeCtxSocketId, activeCtxUser.username, !activeCtxUser.isCaller);
+      closeContextMenu();
+    });
+  }
+
+  if (ctxBtnPromote) {
+    ctxBtnPromote.addEventListener('click', () => {
+      if (!activeCtxUser || !activeCtxSocketId) return;
+      adminManager.promoteUser(activeCtxSocketId, activeCtxUser.username, !activeCtxUser.isAdmin);
+      closeContextMenu();
+    });
+  }
+
+  if (ctxBtnKickVoice) {
+    ctxBtnKickVoice.addEventListener('click', () => {
+      if (!activeCtxUser || !activeCtxSocketId) return;
+      adminManager.kickVoiceUser(activeCtxSocketId, activeCtxUser.username);
+      closeContextMenu();
+    });
+  }
+
+  if (ctxBtnKickServer) {
+    ctxBtnKickServer.addEventListener('click', () => {
+      if (!activeCtxUser || !activeCtxSocketId) return;
+      adminManager.kickServerUser(activeCtxSocketId, activeCtxUser.username);
+      closeContextMenu();
+    });
+  }
+
+  if (ctxBtnBan) {
+    ctxBtnBan.addEventListener('click', () => {
+      if (!activeCtxUser || !activeCtxSocketId) return;
+      adminManager.banServerUser(activeCtxSocketId, activeCtxUser.username);
+      closeContextMenu();
+    });
   }
 });

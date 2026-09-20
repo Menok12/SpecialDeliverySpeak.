@@ -293,6 +293,19 @@ class AdminManager {
     this.socket.emit('admin:mute_user', { targetSocketId: socketId });
   }
 
+  unmuteVoiceUser(socketId, username) {
+    if (!this.isAdmin && !this.isMasterAdmin) return;
+    this.socket.emit('admin:unmute_user', { targetSocketId: socketId });
+  }
+
+  setCallerUser(socketId, username, isCaller) {
+    if (!this.isAdmin && !this.isMasterAdmin) return;
+    const actionText = isCaller ? 'asignar el rol de CALLER (Transmisión Global a todos los canales)' : 'remover el rol de Caller';
+    if (confirm(`¿Deseas ${actionText} a "${username}"?`)) {
+      this.socket.emit('admin:set_caller', { targetSocketId: socketId, isCaller });
+    }
+  }
+
   kickVoiceUser(socketId, username) {
     if (!this.isAdmin && !this.isMasterAdmin) return;
     if (confirm(`¿Desconectar a "${username}" de la sala de voz?`)) {

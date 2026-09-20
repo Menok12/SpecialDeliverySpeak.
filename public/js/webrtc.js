@@ -743,6 +743,18 @@ class VoiceEngine {
       }
     });
 
+    this.socket.on('voice:force_unmuted_by_admin', ({ by }) => {
+      if (this.isMuted) {
+        this.toggleMute(false);
+        alert(`Has sido desilenciado por el Administrador (${by || 'Admin'}).`);
+      }
+    });
+
+    this.socket.on('voice:caller_broadcasting', async ({ socketId, user }) => {
+      // Un Caller en otro canal comenzó a transmitir globalmente
+      await this.createPeerConnection(socketId, false);
+    });
+
     this.socket.on('voice:full_error', ({ message }) => {
       alert(message);
       this.updateUIStatus(false);
@@ -863,7 +875,14 @@ class VoiceEngine {
           this.isMuted = false;
         }
       } catch (err) {
-        alert('Para hablar, permite el acceso al micrófono en el icono del candado 🔒 del navegador.');
+        const isElectron = /Electron/i.test(navigator.userAgent);
+        if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          alert('🎧 No se detectó ningún micrófono conectado a tu computadora.\n\nPor favor, conecta tus auriculares con micrófono o un micrófono USB a la PC para poder hablar.');
+        } else if (isElectron) {
+          alert('🎧 No se pudo acceder al micrófono.\n\nPor favor, asegúrate de que tus auriculares o micrófono estén conectados a la PC.');
+        } else {
+          alert('🎧 No se pudo acceder al micrófono.\n\nPor favor, asegúrate de que tus auriculares con micrófono estén conectados a tu computadora.');
+        }
         return;
       }
     } else {
@@ -963,6 +982,10 @@ class VoiceEngine {
         chanName.textContent = '';
         if (btnRequestMic) btnRequestMic.classList.add('hidden');
       }
+    }
+
+    if (typeof window.renderVoiceStage === 'function') {
+      window.renderVoiceStage();
     }
   }
 }

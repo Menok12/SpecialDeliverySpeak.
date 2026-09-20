@@ -20,7 +20,19 @@ const MASTER_ADMIN_PASSWORD = process.env.MASTER_ADMIN_PASSWORD || 'master123';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'public, max-age=300');
+    }
+  }
+}));
 
 // Configuración persistente del enlace de descarga para la App de Windows
 const DOWNLOAD_CONFIG_FILE = path.join(__dirname, 'download_config.json');
@@ -32,7 +44,7 @@ function getAppDownloadUrl() {
       if (data && data.url) return data.url;
     }
   } catch (e) {}
-  return process.env.APP_DOWNLOAD_URL || '';
+  return process.env.APP_DOWNLOAD_URL || 'https://drive.google.com/file/d/1ZEyR_z44AheeCNDIkMlFmLbSp9jPqtGI/view?usp=sharing';
 }
 
 function setAppDownloadUrl(url) {
@@ -44,6 +56,20 @@ function setAppDownloadUrl(url) {
     return false;
   }
 }
+
+const APP_VERSION = '1.1.0';
+
+app.get('/api/version', (req, res) => {
+  res.json({
+    version: APP_VERSION,
+    downloadUrl: getAppDownloadUrl(),
+    features: [
+      'Visualizador de Nicks gigante con tarjetas destacadas',
+      'Menú contextual con clic derecho para silenciar y ajustar volumen',
+      'Rol de Caller con transmisión de voz a todos los canales'
+    ]
+  });
+});
 
 app.get('/api/app-download-url', (req, res) => {
   res.json({ url: getAppDownloadUrl() });
@@ -208,6 +234,7 @@ function getVoiceChannelUsers(channelId) {
         avatar: u.avatar,
         isAdmin: u.isAdmin,
         isMasterAdmin: u.isMasterAdmin,
+        isCaller: !!u.isCaller,
         isMuted: u.isMuted,
         isDeafened: u.isDeafened,
         isSpeaking: u.isSpeaking
@@ -245,6 +272,7 @@ function initializeSession(socket, userAccount) {
     color: userAccount.color || '#5865F2',
     isAdmin: !!userAccount.isAdmin,
     isMasterAdmin: !!userAccount.isMasterAdmin,
+    isCaller: !!userAccount.isCaller,
     ip: getClientIP(socket),
     currentVoiceChannel: null,
     isMuted: false,
@@ -265,7 +293,9 @@ function initializeSession(socket, userAccount) {
     channels,
     users: Array.from(users.values()),
     voiceState: getAllVoiceState(),
-    messages
+    messages,
+    appVersion: APP_VERSION,
+    downloadUrl: getAppDownloadUrl()
   });
 
   socket.broadcast.emit('user:joined', user);
@@ -375,6 +405,7 @@ io.on('connection', (socket) => {
       color: color || '#5865F2',
       isAdmin,
       isMasterAdmin,
+      isCaller: false,
       token: generateToken(),
       createdAt: new Date().toISOString()
     };
@@ -407,6 +438,7 @@ io.on('connection', (socket) => {
       color: color || '#5865F2',
       isAdmin: false,
       isMasterAdmin: false,
+      isCaller: false,
       ip: clientIP,
       currentVoiceChannel: null,
       isMuted: false,
@@ -422,7 +454,9 @@ io.on('connection', (socket) => {
       channels,
       users: Array.from(users.values()),
       voiceState: getAllVoiceState(),
-      messages
+      messages,
+      appVersion: APP_VERSION,
+      downloadUrl: getAppDownloadUrl()
     });
 
     socket.broadcast.emit('user:joined', guestUser);
@@ -579,7 +613,72 @@ io.on('connection', (socket) => {
     const targetSocket = io.sockets.sockets.get(targetSocketId);
     if (targetSocket) {
       targetSocket.emit('voice:force_muted_by_admin', { by: socket.user.username });
+      if (targetSocket.user) {
+        targetSocket.user.isMuted = true;
+        io.emit('user:updated', targetSocket.user);
+        io.emit('voice:state_update', getAllVoiceState());
+      }
     }
+  });
+
+  // 9b. Desmutear Usuario en Servidor
+  socket.on('admin:unmute_user', ({ targetSocketId }) => {
+    if (!socket.user || (!socket.user.isAdmin && !socket.user.isMasterAdmin)) {
+      return socket.emit('error:permission', 'No tienes permisos para desilenciar usuarios.');
+    }
+
+    const targetSocket = io.sockets.sockets.get(targetSocketId);
+    if (targetSocket) {
+      targetSocket.emit('voice:force_unmuted_by_admin', { by: socket.user.username });
+      if (targetSocket.user) {
+        targetSocket.user.isMuted = false;
+        io.emit('user:updated', targetSocket.user);
+        io.emit('voice:state_update', getAllVoiceState());
+      }
+    }
+  });
+
+  // 9c. Asignar o Remover Rol Caller (Transmisión Global)
+  socket.on('admin:set_caller', ({ targetSocketId, isCaller }) => {
+    if (!socket.user || (!socket.user.isAdmin && !socket.user.isMasterAdmin)) {
+      return socket.emit('error:permission', 'Solo un administrador puede asignar o remover el rol Caller.');
+    }
+
+    const targetUser = users.get(targetSocketId);
+    if (!targetUser) return;
+
+    targetUser.isCaller = !!isCaller;
+
+    // Persistir rol Caller en accounts.json si la cuenta está registrada
+    const accountKey = targetUser.username.toLowerCase();
+    if (accounts[accountKey]) {
+      accounts[accountKey].isCaller = targetUser.isCaller;
+      saveAccounts();
+    }
+
+    const targetSocket = io.sockets.sockets.get(targetSocketId);
+    if (targetSocket) {
+      targetSocket.emit('user:caller_role_changed', { isCaller: targetUser.isCaller });
+    }
+
+    io.emit('user:updated', targetUser);
+    io.emit('voice:state_update', getAllVoiceState());
+
+    const noticeText = isCaller
+      ? `📢⭐ ${socket.user.username} ha asignado el rol CALLER (Llamador Global) a ${targetUser.username}. ¡Cuando hable, se escuchará en todos los canales!`
+      : `📢 ${socket.user.username} ha removido el rol Caller a ${targetUser.username}.`;
+
+    const notice = {
+      id: `sys-${Date.now()}`,
+      sender: 'Sistema',
+      senderColor: '#00B0F4',
+      isSystem: true,
+      text: noticeText,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    if (!messages['text-general']) messages['text-general'] = [];
+    messages['text-general'].push(notice);
+    io.emit('chat:message', { channelId: 'text-general', message: notice });
   });
 
   // 10. Crear Canal
@@ -691,10 +790,35 @@ io.on('connection', (socket) => {
     socket.user.isSpeaking = false;
     socket.join(`voice:${channelId}`);
 
+    // 1. Participantes del mismo canal
     const existingPeers = currentUsers.map(u => ({
       socketId: u.id,
       user: u
     }));
+
+    // 2. Transmisión Global para Caller:
+    // Si quien entra es Caller, conectarlo a TODOS los usuarios en TODOS los canales de voz
+    if (socket.user.isCaller) {
+      for (const [sId, u] of users.entries()) {
+        if (u.currentVoiceChannel && u.currentVoiceChannel !== channelId && sId !== socket.id) {
+          existingPeers.push({ socketId: sId, user: u, isGlobalCallerPeer: true });
+          const remSocket = io.sockets.sockets.get(sId);
+          if (remSocket) {
+            remSocket.emit('voice:caller_broadcasting', {
+              socketId: socket.id,
+              user: socket.user
+            });
+          }
+        }
+      }
+    } else {
+      // Si quien entra NO es Caller, verificar si hay un Caller activo en otro canal para conectarlo
+      for (const [sId, u] of users.entries()) {
+        if (u.isCaller && u.currentVoiceChannel && u.currentVoiceChannel !== channelId && sId !== socket.id) {
+          existingPeers.push({ socketId: sId, user: u, isCallerBroadcast: true });
+        }
+      }
+    }
 
     socket.emit('voice:joined_success', {
       channelId,
@@ -719,7 +843,11 @@ io.on('connection', (socket) => {
     socket.user.currentVoiceChannel = null;
     socket.user.isSpeaking = false;
 
-    socket.to(`voice:${channelId}`).emit('voice:peer_left', { socketId: socket.id });
+    if (socket.user.isCaller) {
+      io.emit('voice:peer_left', { socketId: socket.id, wasCaller: true });
+    } else {
+      socket.to(`voice:${channelId}`).emit('voice:peer_left', { socketId: socket.id });
+    }
     socket.emit('voice:left_success');
 
     io.emit('voice:state_update', getAllVoiceState());
@@ -738,10 +866,21 @@ io.on('connection', (socket) => {
   socket.on('voice:speaking', ({ isSpeaking }) => {
     if (!socket.user || !socket.user.currentVoiceChannel) return;
     socket.user.isSpeaking = !!isSpeaking;
-    io.to(`voice:${socket.user.currentVoiceChannel}`).emit('voice:user_speaking', {
-      socketId: socket.id,
-      isSpeaking: socket.user.isSpeaking
-    });
+
+    if (socket.user.isCaller) {
+      // Si el Caller habla, emitir a TODOS los usuarios conectados para efecto global
+      io.emit('voice:user_speaking', {
+        socketId: socket.id,
+        isSpeaking: socket.user.isSpeaking,
+        isCaller: true,
+        username: socket.user.username
+      });
+    } else {
+      io.to(`voice:${socket.user.currentVoiceChannel}`).emit('voice:user_speaking', {
+        socketId: socket.id,
+        isSpeaking: socket.user.isSpeaking
+      });
+    }
   });
 
   socket.on('voice:toggle_state', ({ isMuted, isDeafened }) => {
@@ -750,7 +889,8 @@ io.on('connection', (socket) => {
     if (typeof isDeafened === 'boolean') socket.user.isDeafened = isDeafened;
 
     if (socket.user.currentVoiceChannel) {
-      io.to(`voice:${socket.user.currentVoiceChannel}`).emit('voice:user_state_changed', {
+      const emitTarget = socket.user.isCaller ? io : io.to(`voice:${socket.user.currentVoiceChannel}`);
+      emitTarget.emit('voice:user_state_changed', {
         socketId: socket.id,
         isMuted: socket.user.isMuted,
         isDeafened: socket.user.isDeafened
@@ -777,6 +917,7 @@ io.on('connection', (socket) => {
       avatar: socket.user.avatar,
       isAdmin: socket.user.isAdmin,
       isMasterAdmin: socket.user.isMasterAdmin,
+      isCaller: !!socket.user.isCaller,
       text: cleanText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
@@ -792,7 +933,11 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (socket.user) {
       if (socket.user.currentVoiceChannel) {
-        socket.to(`voice:${socket.user.currentVoiceChannel}`).emit('voice:peer_left', { socketId: socket.id });
+        if (socket.user.isCaller) {
+          io.emit('voice:peer_left', { socketId: socket.id, wasCaller: true });
+        } else {
+          socket.to(`voice:${socket.user.currentVoiceChannel}`).emit('voice:peer_left', { socketId: socket.id });
+        }
       }
       users.delete(socket.id);
       io.emit('user:left', { socketId: socket.id, username: socket.user.username });

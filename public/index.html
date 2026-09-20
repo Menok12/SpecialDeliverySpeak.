@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=1.1.0">
 </head>
 <body>
 
@@ -195,8 +195,49 @@
         </div>
       </header>
 
+      <!-- Banner de Notificación de Actualización en Vivo -->
+      <div id="update-notification-banner" class="update-notification-banner hidden">
+        <div class="update-banner-content">
+          <span class="update-rocket-icon">🚀</span>
+          <div class="update-text-group">
+            <span class="update-title"><strong>¡Nueva actualización disponible!</strong> <span id="update-version-label" class="update-version-badge">v1.1.0</span></span>
+            <span class="update-subtitle">Mejoras listas: Tarjetas con Nicks Gigantes, Menú Clic Derecho y Rol Caller.</span>
+          </div>
+        </div>
+        <div class="update-actions">
+          <button id="btn-update-reload" class="btn-update-now" title="Recargar la aplicación para aplicar mejoras">⚡ Actualizar Ahora</button>
+          <a id="btn-update-download" href="/descargar" target="_blank" class="btn-update-link hidden">💾 Descargar .exe</a>
+          <button id="btn-update-dismiss" class="btn-update-close" title="Cerrar">&times;</button>
+        </div>
+      </div>
+
       <div id="mic-perm-banner" class="mic-alert-banner hidden">
         ⚠️ <strong>Modo Solo Escuchar:</strong> Si tienes problemas con el permiso de micrófono en tu navegador, te recomendamos la <strong>App de Escritorio</strong>: <a id="btn-banner-download" href="/descargar" target="_blank" class="btn-download-inline" style="text-decoration:none; display:inline-block;">💻 Descargar App PC</a>
+      </div>
+
+      <!-- Banner de Transmisión Global de Caller -->
+      <div id="caller-broadcast-banner" class="caller-broadcast-banner hidden">
+        <span class="caller-anim-icon">📢⚡</span>
+        <div class="caller-banner-text">
+          <strong id="caller-banner-name">Caller</strong> está transmitiendo su voz a <strong>todos los canales</strong>.
+        </div>
+      </div>
+
+      <!-- Escenario Visual de Sala de Voz (Voice Stage con Nicks Claros) -->
+      <div id="voice-stage" class="voice-stage hidden">
+        <div class="voice-stage-header">
+          <div class="voice-stage-title">
+            <span class="voice-live-dot"></span>
+            <span id="voice-stage-channel-name">SALA DE VOZ</span>
+            <span class="voice-stage-count" id="voice-stage-count">0 participantes</span>
+          </div>
+          <div class="voice-stage-tip">
+            💡 <em>Clic derecho sobre cualquier participante para silenciarlo, ajustar volumen o asignar rol</em>
+          </div>
+        </div>
+        <div class="voice-stage-grid" id="voice-stage-grid">
+          <!-- Tarjetas de participantes generadas dinámicamente con Nicks bien visibles -->
+        </div>
       </div>
 
       <div class="messages-container" id="messages-container"></div>
@@ -333,30 +374,30 @@
     </div>
   </div>
 
-  <!-- MODAL: Guía de Permiso de Micrófono -->
+  <!-- MODAL: Guía de Conexión de Micrófono -->
   <div id="modal-mic-guide" class="overlay">
     <div class="modal mic-guide-modal">
       <div class="modal-header">
-        <div class="guide-icon">🎙️🔒</div>
-        <h3>Permiso de Micrófono</h3>
+        <div class="guide-icon">🎧🎙️</div>
+        <h3>Micrófono No Detectado</h3>
         <button class="btn-close-modal" id="btn-close-mic-guide">&times;</button>
       </div>
       <div class="mic-guide-body">
-        <p style="color: var(--text-normal); font-size: 14px; margin-bottom: 14px;">Tu navegador no tiene activo el permiso de micrófono. Sigue estos 2 pasos para activarlo:</p>
+        <p style="color: var(--text-normal); font-size: 14px; margin-bottom: 14px;">No se detecta un micrófono conectado a tu computadora. Sigue estos pasos para solucionarlo:</p>
         <div class="guide-step">
           <div class="step-num">1</div>
           <div class="step-desc">
-            En la <strong>barra de direcciones (URL)</strong> arriba en tu navegador, haz clic en el <strong>Candado 🔒</strong> o icono de configuración del sitio.
+            Conecta tus <strong>auriculares con micrófono</strong> o micrófono USB firmemente a tu equipo.
           </div>
         </div>
         <div class="guide-step">
           <div class="step-num">2</div>
           <div class="step-desc">
-            Cambia la opción de <strong>Micrófono</strong> a <strong>"Permitir" (Allow)</strong>.
+            Verifica que el micrófono no tenga el interruptor físico de silencio activado y que Windows lo reconozca en Sonido.
           </div>
         </div>
         <div class="guide-note">
-          💡 <em>Recuerda: Si estás en modo oyente, puedes seguir escuchando a todos con total normalidad mientras lo activas.</em>
+          💡 <em>Recuerda: Si estás en modo oyente, puedes seguir escuchando a todos con total normalidad.</em>
         </div>
         <button type="button" class="btn btn-primary btn-full" id="btn-retry-mic">Reintentar Conectar Micrófono 🎙️</button>
       </div>
@@ -535,12 +576,66 @@
         </div>
       </div>
     </div>
+  <!-- MENÚ CONTEXTUAL FLOTANTE (CLIC DERECHO) -->
+  <div id="user-context-menu" class="context-menu hidden">
+    <div class="context-menu-header">
+      <div class="context-user-avatar" id="ctx-user-avatar">📦</div>
+      <div class="context-user-info">
+        <span class="context-username" id="ctx-username">Usuario</span>
+        <span class="context-user-role" id="ctx-user-role">Miembro</span>
+      </div>
+    </div>
+    <div class="context-menu-divider"></div>
+    
+    <!-- Slider de volumen personal -->
+    <div class="context-menu-item-slider" id="ctx-vol-container">
+      <div class="ctx-slider-label">
+        <span>🔊 Volumen Personal</span>
+        <span id="ctx-vol-val">100%</span>
+      </div>
+      <input type="range" id="ctx-vol-slider" min="0" max="2" step="0.05" value="1">
+    </div>
+
+    <div class="context-menu-divider admin-ctx-item"></div>
+
+    <!-- Acciones de Administración y Roles -->
+    <button type="button" class="context-menu-item admin-ctx-item" id="ctx-btn-mute">
+      <span class="ctx-icon" id="ctx-mute-icon">🎙️🚫</span>
+      <span class="ctx-text" id="ctx-mute-text">Silenciar en Servidor</span>
+    </button>
+
+    <button type="button" class="context-menu-item admin-ctx-item" id="ctx-btn-caller">
+      <span class="ctx-icon">📢⚡</span>
+      <span class="ctx-text" id="ctx-caller-text">Asignar Rol: CALLER (Voz Global)</span>
+    </button>
+
+    <button type="button" class="context-menu-item master-ctx-item" id="ctx-btn-promote">
+      <span class="ctx-icon">👑</span>
+      <span class="ctx-text" id="ctx-promote-text">Hacer Administrador</span>
+    </button>
+
+    <div class="context-menu-divider admin-ctx-item"></div>
+
+    <button type="button" class="context-menu-item admin-ctx-item danger" id="ctx-btn-kick-voice">
+      <span class="ctx-icon">👢</span>
+      <span>Desconectar de la Voz</span>
+    </button>
+
+    <button type="button" class="context-menu-item admin-ctx-item danger" id="ctx-btn-kick-server">
+      <span class="ctx-icon">🚪</span>
+      <span>Expulsar del Servidor</span>
+    </button>
+
+    <button type="button" class="context-menu-item master-ctx-item danger" id="ctx-btn-ban">
+      <span class="ctx-icon">🚫</span>
+      <span>Banear Permanentemente</span>
+    </button>
   </div>
 
   <!-- Scripts -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="js/webrtc.js"></script>
-  <script src="js/admin.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/webrtc.js?v=1.1.0"></script>
+  <script src="js/admin.js?v=1.1.0"></script>
+  <script src="js/app.js?v=1.1.0"></script>
 </body>
 </html>
