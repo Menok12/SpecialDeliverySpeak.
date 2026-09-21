@@ -286,14 +286,17 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 6px;
+  padding: 5px 8px;
   border-radius: var(--radius-sm);
   font-size: 13px;
   transition: var(--transition);
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .voice-user-row:hover {
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 .voice-user-avatar {
@@ -329,10 +332,15 @@ body {
 
 .voice-user-name {
   flex: 1;
-  font-weight: 500;
+  min-width: 0;
+  font-weight: 700;
+  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   transition: color 0.12s ease, text-shadow 0.12s ease;
 }
 

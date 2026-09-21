@@ -14,8 +14,8 @@
     "passwordHash": "0cccbc1097ec46280deb57b13bce8152c771786ab5e6c6f28de912b148cb84a5",
     "avatar": "📦",
     "color": "#5865F2",
-    "isAdmin": false,
-    "isMasterAdmin": false,
+    "isAdmin": true,
+    "isMasterAdmin": true,
     "token": "1dc41160e9aafc52b03669f12013929ae87d5f624d0defc7e57e36568d5f7c7a",
     "createdAt": "2026-09-18T12:50:01.605Z"
   }

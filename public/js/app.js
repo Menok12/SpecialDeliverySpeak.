@@ -1147,119 +1147,6 @@ document.addEventListener('DOMContentLoaded', () => {
               openContextMenu(e, u, u.id);
             });
 
-            // Controles de audio individuales
-            if (u.id !== socket.id) {
-              const controls = document.createElement('div');
-              controls.className = 'voice-user-controls';
-
-              // 1. Slider de Volumen (0% a 200%)
-              const currentVol = voiceEngine.getUserVolume(u.id);
-              const volWrap = document.createElement('div');
-              volWrap.className = 'vol-slider-wrap';
-
-              const volIcon = document.createElement('span');
-              volIcon.textContent = '🔊';
-
-              const volSlider = document.createElement('input');
-              volSlider.type = 'range';
-              volSlider.className = 'user-vol-slider';
-              volSlider.min = '0';
-              volSlider.max = '2';
-              volSlider.step = '0.05';
-              volSlider.value = currentVol;
-              volSlider.title = `Volumen de ${u.username}`;
-
-              const volLabel = document.createElement('span');
-              volLabel.textContent = `${Math.round(currentVol * 100)}%`;
-
-              volSlider.addEventListener('input', (e) => {
-                e.stopPropagation();
-                const newVol = parseFloat(volSlider.value);
-                voiceEngine.setUserVolume(u.id, newVol);
-                volLabel.textContent = `${Math.round(newVol * 100)}%`;
-              });
-              volSlider.addEventListener('click', (e) => e.stopPropagation());
-
-              volWrap.appendChild(volIcon);
-              volWrap.appendChild(volSlider);
-              volWrap.appendChild(volLabel);
-              controls.appendChild(volWrap);
-
-              // 2. Slider de Paneo Estéreo (Audio Espacial)
-              const currentPan = voiceEngine.getUserPan(u.id);
-              const panWrap = document.createElement('div');
-              panWrap.className = 'pan-slider-wrap';
-              panWrap.title = `Ubicación estéreo de ${u.username} (Izquierda / Derecha)`;
-
-              const panIcon = document.createElement('span');
-              panIcon.textContent = '🎧';
-
-              const panSlider = document.createElement('input');
-              panSlider.type = 'range';
-              panSlider.className = 'user-pan-slider';
-              panSlider.min = '-1';
-              panSlider.max = '1';
-              panSlider.step = '0.1';
-              panSlider.value = currentPan;
-
-              panSlider.addEventListener('input', (e) => {
-                e.stopPropagation();
-                voiceEngine.setUserPan(u.id, panSlider.value);
-              });
-              panSlider.addEventListener('click', (e) => e.stopPropagation());
-
-              panWrap.appendChild(panIcon);
-              panWrap.appendChild(panSlider);
-              controls.appendChild(panWrap);
-
-              // 3. Moderación
-              if (adminManager.isAdmin || adminManager.isMasterAdmin) {
-                const btnMute = document.createElement('button');
-                btnMute.className = 'btn-mod-action';
-                btnMute.innerHTML = '🎙️🚫';
-                btnMute.title = `Silenciar a ${u.username}`;
-                btnMute.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  adminManager.muteVoiceUser(u.id, u.username);
-                });
-                controls.appendChild(btnMute);
-
-                const btnKickVoice = document.createElement('button');
-                btnKickVoice.className = 'btn-mod-action';
-                btnKickVoice.innerHTML = '👢';
-                btnKickVoice.title = `Desconectar a ${u.username} de la voz`;
-                btnKickVoice.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  adminManager.kickVoiceUser(u.id, u.username);
-                });
-                controls.appendChild(btnKickVoice);
-              }
-
-              if (adminManager.isMasterAdmin && !u.isMasterAdmin) {
-                const btnPromote = document.createElement('button');
-                btnPromote.className = 'btn-mod-action';
-                btnPromote.innerHTML = u.isAdmin ? '🛡️❌' : '👑';
-                btnPromote.title = u.isAdmin ? `Quitar Admin a ${u.username}` : `Hacer Administrador a ${u.username}`;
-                btnPromote.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  adminManager.promoteUser(u.id, u.username, !u.isAdmin);
-                });
-                controls.appendChild(btnPromote);
-
-                const btnBan = document.createElement('button');
-                btnBan.className = 'btn-mod-action action-ban';
-                btnBan.innerHTML = '🚫';
-                btnBan.title = `Banear permanentemente a ${u.username}`;
-                btnBan.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  adminManager.banServerUser(u.id, u.username);
-                });
-                controls.appendChild(btnBan);
-              }
-
-              row.appendChild(controls);
-            }
-
             usersList.appendChild(row);
           });
 
@@ -1828,12 +1715,13 @@ document.addEventListener('DOMContentLoaded', () => {
     activeCtxSocketId = socketId;
 
     const isSelf = myUser && (socketId === socket.id || userObj.username === myUser.username);
-    const hasAdmin = !!(
+    const isMasterUser = myUser && myUser.username && (myUser.username.toLowerCase() === 'elbolas' || myUser.username.toLowerCase() === 'progamer2026');
+    const hasAdmin = isMasterUser || !!(
       (myUser && (myUser.isAdmin || myUser.isMasterAdmin)) ||
       (adminManager && (adminManager.isAdmin || adminManager.isMasterAdmin)) ||
       window.isAdmin || window.isMasterAdmin
     );
-    const isMaster = !!(
+    const isMaster = isMasterUser || !!(
       (myUser && myUser.isMasterAdmin) ||
       (adminManager && adminManager.isMasterAdmin) ||
       window.isMasterAdmin
