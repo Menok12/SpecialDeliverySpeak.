@@ -115,7 +115,65 @@ class AdminManager {
     }
   }
 
+  updateAdminState(user) {
+    if (!user) return;
+    this.isAdmin = !!(user.isAdmin || user.isMasterAdmin);
+    this.isMasterAdmin = !!user.isMasterAdmin;
+    window.isAdmin = this.isAdmin;
+    window.isMasterAdmin = this.isMasterAdmin;
+
+    if (this.isAdmin) {
+      document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+    } else {
+      document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+    }
+
+    if (this.isMasterAdmin) {
+      document.querySelectorAll('.master-admin-only').forEach(el => el.classList.remove('hidden'));
+    } else {
+      document.querySelectorAll('.master-admin-only').forEach(el => el.classList.add('hidden'));
+    }
+
+    const myRole = document.getElementById('my-role-display');
+    if (myRole) {
+      if (this.isMasterAdmin) {
+        myRole.textContent = '👑⭐ Master Admin';
+        myRole.style.color = '#FEE75C';
+        myRole.style.fontWeight = '800';
+      } else if (this.isAdmin) {
+        myRole.textContent = '👑 Administrador';
+        myRole.style.color = '#57F287';
+        myRole.style.fontWeight = '700';
+      } else {
+        myRole.textContent = 'Miembro';
+        myRole.style.color = 'var(--text-muted)';
+        myRole.style.fontWeight = 'normal';
+      }
+    }
+
+    if (window.renderChannelsList) window.renderChannelsList();
+    if (window.renderMembersList) window.renderMembersList();
+  }
+
   setupSocketListeners() {
+    this.socket.on('init:state', (data) => {
+      if (data && data.user) {
+        this.updateAdminState(data.user);
+      }
+    });
+
+    this.socket.on('auth:success', (data) => {
+      if (data && data.user) {
+        this.updateAdminState(data.user);
+      }
+    });
+
+    this.socket.on('user:updated', (updatedUser) => {
+      if (updatedUser && (updatedUser.id === this.socket.id || (window.myUser && updatedUser.username === window.myUser.username))) {
+        this.updateAdminState(updatedUser);
+      }
+    });
+
     this.socket.on('admin:login_success', ({ isAdmin, isMasterAdmin }) => {
       this.isAdmin = !!isAdmin;
       this.isMasterAdmin = !!isMasterAdmin;

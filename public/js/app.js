@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let messagesByChannel = {};
 
   // ===================== SISTEMA DE ACTUALIZACIÓN EN VIVO =====================
-  const CURRENT_APP_VERSION = '1.2.0';
+  const CURRENT_APP_VERSION = '1.3.0';
   let isUpdateBannerDismissed = false;
 
   const updateBanner = document.getElementById('update-notification-banner');
@@ -581,6 +581,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   socket.on('init:state', (data) => {
     myUser = data.user;
+    if (myUser) {
+      window.myUser = myUser;
+      if (adminManager) {
+        adminManager.updateAdminState(myUser);
+      }
+    }
     channels = data.channels || [];
     voiceState = data.voiceState || {};
     messagesByChannel = data.messages || {};
@@ -613,6 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.on('user:joined', (user) => {
     members.set(user.id, user);
     renderMembersList();
+    renderChannelsList();
     renderVoiceStage();
   });
 
@@ -625,8 +632,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   socket.on('user:updated', (updatedUser) => {
     members.set(updatedUser.id, updatedUser);
-    if (myUser && myUser.id === updatedUser.id) {
+    if (myUser && (myUser.id === updatedUser.id || myUser.username === updatedUser.username)) {
       myUser = updatedUser;
+      window.myUser = myUser;
+      if (adminManager) {
+        adminManager.updateAdminState(myUser);
+      }
       updateUserDock();
     }
     renderMembersList();
@@ -801,6 +812,125 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dynamicCategoriesContainer.innerHTML = '';
 
+    // 0. SECCIÓN: CONECTADOS EN ESPERA (LOBBY / ANTES DE EMPEZAR)
+    // Permite ver el nick de todos los compañeros antes de entrar a una Party y asignarles roles
+    const waitingUsers = [];
+    members.forEach(u => {
+      if (!u.currentVoiceChannel) {
+        waitingUsers.push(u);
+      }
+    });
+
+    const isLobbyCollapsed = collapsedCategories.has('Lobby');
+
+    const lobbyBlock = document.createElement('div');
+    lobbyBlock.className = 'channel-category lobby-category';
+    lobbyBlock.dataset.category = 'Lobby';
+
+    const lobbyHeader = document.createElement('div');
+    lobbyHeader.className = `category-header lobby-header ${isLobbyCollapsed ? 'collapsed' : ''}`;
+
+    const lobbyArrow = document.createElement('span');
+    lobbyArrow.className = 'category-arrow';
+    lobbyArrow.textContent = isLobbyCollapsed ? '▶' : '▼';
+
+    const lobbyTitle = document.createElement('span');
+    lobbyTitle.className = 'category-name';
+    lobbyTitle.style.color = '#57F287';
+    lobbyTitle.style.fontWeight = '800';
+    lobbyTitle.textContent = `👥 CONECTADOS EN ESPERA (${waitingUsers.length})`;
+
+    lobbyHeader.appendChild(lobbyArrow);
+    lobbyHeader.appendChild(lobbyTitle);
+
+    lobbyHeader.addEventListener('click', () => {
+      if (collapsedCategories.has('Lobby')) {
+        collapsedCategories.delete('Lobby');
+      } else {
+        collapsedCategories.add('Lobby');
+      }
+      renderChannelsList();
+    });
+
+    lobbyBlock.appendChild(lobbyHeader);
+
+    const lobbyList = document.createElement('div');
+    lobbyList.className = `channels-list ${isLobbyCollapsed ? 'collapsed' : ''}`;
+
+    if (waitingUsers.length === 0) {
+      const tipEmpty = document.createElement('div');
+      tipEmpty.className = 'lobby-helper-tip';
+      tipEmpty.textContent = '✨ Todos los compañeros están dentro de una Party.';
+      lobbyList.appendChild(tipEmpty);
+    } else {
+      const tip = document.createElement('div');
+      tip.className = 'lobby-helper-tip';
+      tip.textContent = '💡 Antes de empezar: Clic derecho o [...] en tu amigo para asignarle rol Caller o Moderador.';
+      lobbyList.appendChild(tip);
+
+      waitingUsers.forEach(u => {
+        const row = document.createElement('div');
+        row.className = 'lobby-user-row';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'voice-user-avatar';
+        avatar.textContent = u.avatar || '📦';
+        avatar.style.backgroundColor = (u.color || '#5865F2') + '33';
+
+        const info = document.createElement('div');
+        info.className = 'lobby-user-info';
+
+        const name = document.createElement('span');
+        name.className = 'lobby-user-name';
+        name.textContent = u.username;
+        name.style.color = u.color || '#f2f3f5';
+
+        if (u.isMasterAdmin) {
+          name.innerHTML += ' 👑⭐';
+        } else if (u.isAdmin) {
+          name.innerHTML += ' 👑';
+        }
+        if (u.callerRole === 'c1') {
+          name.innerHTML += ' <span class="badge-role-inline c1">📢⚔️ C1</span>';
+        } else if (u.callerRole === 'c2') {
+          name.innerHTML += ' <span class="badge-role-inline c2">📢🛡️ C2</span>';
+        } else if (u.callerRole === 'global' || u.isCaller) {
+          name.innerHTML += ' <span class="badge-role-inline global">📢⚡ Global</span>';
+        }
+
+        const sub = document.createElement('span');
+        sub.className = 'lobby-user-sub';
+        sub.textContent = '⏳ En espera (Lobby)';
+
+        info.appendChild(name);
+        info.appendChild(sub);
+
+        const btnDots = document.createElement('button');
+        btnDots.className = 'btn-user-dots';
+        btnDots.innerHTML = '⋮';
+        btnDots.title = 'Asignar Roles o Opciones';
+        btnDots.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openContextMenu(e, u, u.id);
+        });
+
+        row.appendChild(avatar);
+        row.appendChild(info);
+        row.appendChild(btnDots);
+
+        // Clic derecho en toda la fila para menú contextual
+        row.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          openContextMenu(e, u, u.id);
+        });
+
+        lobbyList.appendChild(row);
+      });
+    }
+
+    lobbyBlock.appendChild(lobbyList);
+    dynamicCategoriesContainer.appendChild(lobbyBlock);
+
     // Agrupar canales por categoría (General -> Campo 1 -> Campo 2 -> otras)
     const categoryNames = ['General', 'Campo 1', 'Campo 2'];
     channels.forEach(c => {
@@ -844,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
       header.appendChild(arrow);
       header.appendChild(title);
 
-      if (adminManager.isAdmin || adminManager.isMasterAdmin) {
+      if (adminManager.isAdmin || adminManager.isMasterAdmin || (myUser && (myUser.isAdmin || myUser.isMasterAdmin))) {
         const btnAdd = document.createElement('button');
         btnAdd.className = 'btn-add-channel admin-only';
         btnAdd.textContent = '+';
@@ -888,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
         item.appendChild(prefix);
         item.appendChild(cTitle);
 
-        if ((adminManager.isAdmin || adminManager.isMasterAdmin) && chan.id !== 'text-general') {
+        if ((adminManager.isAdmin || adminManager.isMasterAdmin || (myUser && (myUser.isAdmin || myUser.isMasterAdmin))) && chan.id !== 'text-general') {
           const btnDelete = document.createElement('button');
           btnDelete.className = 'btn-delete-channel';
           btnDelete.innerHTML = '🗑️';
@@ -938,7 +1068,7 @@ document.addEventListener('DOMContentLoaded', () => {
           item.appendChild(limitBadge);
         }
 
-        if (adminManager.isAdmin || adminManager.isMasterAdmin) {
+        if (adminManager.isAdmin || adminManager.isMasterAdmin || (myUser && (myUser.isAdmin || myUser.isMasterAdmin))) {
           const btnDelete = document.createElement('button');
           btnDelete.className = 'btn-delete-channel';
           btnDelete.innerHTML = '🗑️';
@@ -997,9 +1127,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (u.isMuted) statusIcons.innerHTML += '🎙️🚫';
             if (u.isDeafened) statusIcons.innerHTML += '🔇';
 
+            const btnDots = document.createElement('button');
+            btnDots.className = 'btn-user-dots';
+            btnDots.innerHTML = '⋮';
+            btnDots.title = 'Asignar Roles / Opciones';
+            btnDots.addEventListener('click', (e) => {
+              e.stopPropagation();
+              openContextMenu(e, u, u.id);
+            });
+
             row.appendChild(avatar);
             row.appendChild(name);
             row.appendChild(statusIcons);
+            row.appendChild(btnDots);
 
             // Clic derecho para menú contextual
             row.addEventListener('contextmenu', (e) => {
@@ -1318,8 +1458,18 @@ document.addEventListener('DOMContentLoaded', () => {
         details.appendChild(nameRow);
         details.appendChild(subtext);
 
+        const btnDots = document.createElement('button');
+        btnDots.className = 'btn-user-dots';
+        btnDots.innerHTML = '⋮';
+        btnDots.title = 'Asignar Roles / Opciones';
+        btnDots.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openContextMenu(e, u, u.id);
+        });
+
         item.appendChild(avatar);
         item.appendChild(details);
+        item.appendChild(btnDots);
 
         // Clic derecho para menú contextual
         item.addEventListener('contextmenu', (e) => {
@@ -1678,8 +1828,16 @@ document.addEventListener('DOMContentLoaded', () => {
     activeCtxSocketId = socketId;
 
     const isSelf = myUser && (socketId === socket.id || userObj.username === myUser.username);
-    const hasAdmin = adminManager.isAdmin || adminManager.isMasterAdmin;
-    const isMaster = adminManager.isMasterAdmin;
+    const hasAdmin = !!(
+      (myUser && (myUser.isAdmin || myUser.isMasterAdmin)) ||
+      (adminManager && (adminManager.isAdmin || adminManager.isMasterAdmin)) ||
+      window.isAdmin || window.isMasterAdmin
+    );
+    const isMaster = !!(
+      (myUser && myUser.isMasterAdmin) ||
+      (adminManager && adminManager.isMasterAdmin) ||
+      window.isMasterAdmin
+    );
 
     // Header del menú
     if (ctxUserAvatar) {
