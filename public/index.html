@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=1.1.0">
+  <link rel="stylesheet" href="css/styles.css?v=1.2.0">
 </head>
 <body>
 
@@ -215,11 +215,11 @@
         ⚠️ <strong>Modo Solo Escuchar:</strong> Si tienes problemas con el permiso de micrófono en tu navegador, te recomendamos la <strong>App de Escritorio</strong>: <a id="btn-banner-download" href="/descargar" target="_blank" class="btn-download-inline" style="text-decoration:none; display:inline-block;">💻 Descargar App PC</a>
       </div>
 
-      <!-- Banner de Transmisión Global de Caller -->
+      <!-- Banner de Transmisión Global o por Campo de Caller -->
       <div id="caller-broadcast-banner" class="caller-broadcast-banner hidden">
-        <span class="caller-anim-icon">📢⚡</span>
+        <span class="caller-anim-icon" id="caller-anim-icon">📢⚡</span>
         <div class="caller-banner-text">
-          <strong id="caller-banner-name">Caller</strong> está transmitiendo su voz a <strong>todos los canales</strong>.
+          <strong id="caller-banner-name">Caller</strong> está transmitiendo su voz a <strong id="caller-banner-target">todos los canales</strong>.
         </div>
       </div>
 
@@ -604,9 +604,19 @@
       <span class="ctx-text" id="ctx-mute-text">Silenciar en Servidor</span>
     </button>
 
-    <button type="button" class="context-menu-item admin-ctx-item" id="ctx-btn-caller">
+    <button type="button" class="context-menu-item admin-ctx-item" id="ctx-btn-caller-c1">
+      <span class="ctx-icon">📢⚔️</span>
+      <span class="ctx-text" id="ctx-caller-c1-text">Asignar: CALLER CAMPO 1</span>
+    </button>
+
+    <button type="button" class="context-menu-item admin-ctx-item" id="ctx-btn-caller-c2">
+      <span class="ctx-icon">📢🛡️</span>
+      <span class="ctx-text" id="ctx-caller-c2-text">Asignar: CALLER CAMPO 2</span>
+    </button>
+
+    <button type="button" class="context-menu-item admin-ctx-item" id="ctx-btn-caller-global">
       <span class="ctx-icon">📢⚡</span>
-      <span class="ctx-text" id="ctx-caller-text">Asignar Rol: CALLER (Voz Global)</span>
+      <span class="ctx-text" id="ctx-caller-global-text">Asignar: CALLER GLOBAL (Todos)</span>
     </button>
 
     <button type="button" class="context-menu-item master-ctx-item" id="ctx-btn-promote">
@@ -634,8 +644,8 @@
 
   <!-- Scripts -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="js/webrtc.js?v=1.1.0"></script>
-  <script src="js/admin.js?v=1.1.0"></script>
-  <script src="js/app.js?v=1.1.0"></script>
+  <script src="js/webrtc.js?v=1.2.0"></script>
+  <script src="js/admin.js?v=1.2.0"></script>
+  <script src="js/app.js?v=1.2.0"></script>
 </body>
 </html>

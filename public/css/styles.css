@@ -1938,24 +1938,79 @@ body {
 /* === BADGES DE ROL (CALLER) === */
 .caller-badge {
   font-size: 10px;
-  background: linear-gradient(135deg, #00b0f4, #5865f2);
   color: #fff;
-  padding: 1px 6px;
+  padding: 2px 7px;
   border-radius: var(--radius-sm);
   font-weight: 800;
   letter-spacing: 0.03em;
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  box-shadow: 0 0 6px rgba(0, 176, 244, 0.4);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+}
+
+.caller-badge.caller-c1, .caller-badge-c1 {
+  background: linear-gradient(135deg, #f97316, #ef4444);
+  border: 1px solid #fca5a5;
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.5);
+}
+
+.caller-badge.caller-c2, .caller-badge-c2 {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  border: 1px solid #93c5fd;
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.5);
+}
+
+.caller-badge.caller-global, .caller-badge-global {
+  background: linear-gradient(135deg, #8b5cf6, #d946ef);
+  border: 1px solid #d8b4fe;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
 }
 
 .caller-badge-crown {
   margin-left: 4px;
   font-size: 11px;
+  font-weight: 700;
+}
+.caller-badge-crown.caller-c1 {
+  color: #f97316;
+  text-shadow: 0 0 6px rgba(249, 115, 22, 0.6);
+}
+.caller-badge-crown.caller-c2 {
+  color: #0ea5e9;
+  text-shadow: 0 0 6px rgba(14, 165, 233, 0.6);
+}
+.caller-badge-crown.caller-global {
+  color: #a855f7;
+  text-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
 }
 
-/* === BANNER DE TRANSMISIÓN CALLER GLOBAL === */
+.badge-role-inline {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 4px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.badge-role-inline.c1 {
+  background-color: rgba(249, 115, 22, 0.2);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.5);
+}
+.badge-role-inline.c2 {
+  background-color: rgba(14, 165, 233, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.5);
+}
+.badge-role-inline.global {
+  background-color: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.5);
+}
+
+/* === BANNER DE TRANSMISIÓN CALLER === */
 .caller-broadcast-banner {
   background: linear-gradient(90deg, rgba(0, 176, 244, 0.25), rgba(88, 101, 242, 0.2));
   border-bottom: 2px solid #00b0f4;
@@ -1967,10 +2022,37 @@ body {
   box-shadow: 0 2px 10px rgba(0, 176, 244, 0.2);
 }
 
+.caller-broadcast-banner.caller-c1-banner {
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.35), rgba(239, 68, 68, 0.3));
+  border-bottom: 2px solid #f97316;
+  box-shadow: 0 2px 12px rgba(249, 115, 22, 0.4);
+}
+.caller-broadcast-banner.caller-c1-banner strong {
+  color: #fb923c;
+}
+
+.caller-broadcast-banner.caller-c2-banner {
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.35), rgba(37, 99, 235, 0.3));
+  border-bottom: 2px solid #0ea5e9;
+  box-shadow: 0 2px 12px rgba(14, 165, 233, 0.4);
+}
+.caller-broadcast-banner.caller-c2-banner strong {
+  color: #38bdf8;
+}
+
+.caller-broadcast-banner.caller-global-banner {
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.35), rgba(217, 70, 239, 0.3));
+  border-bottom: 2px solid #a855f7;
+  box-shadow: 0 2px 12px rgba(168, 85, 247, 0.4);
+}
+.caller-broadcast-banner.caller-global-banner strong {
+  color: #c084fc;
+}
+
 @keyframes caller-pulse {
-  0% { background-color: rgba(0, 176, 244, 0.25); }
-  50% { background-color: rgba(0, 176, 244, 0.4); }
-  100% { background-color: rgba(0, 176, 244, 0.25); }
+  0% { opacity: 0.9; }
+  50% { opacity: 1; }
+  100% { opacity: 0.9; }
 }
 
 .caller-anim-icon {
@@ -1986,10 +2068,6 @@ body {
 .caller-banner-text {
   font-size: 13px;
   color: #f2f3f5;
-}
-
-.caller-banner-text strong {
-  color: #00b0f4;
 }
 
 /* === BANNER DE ACTUALIZACIÓN EN VIVO === */
@@ -2222,23 +2300,58 @@ body {
 }
 
 .voice-stage-avatar.speaking {
-  box-shadow: 0 0 0 3px var(--accent-success), 0 0 16px rgba(87, 242, 135, 0.6);
+  box-shadow: 0 0 0 3px var(--accent-success), 0 0 16px rgba(87, 242, 135, 0.7);
   animation: speak-pulse 1.2s infinite;
 }
 
-.voice-stage-avatar.caller-speaking {
-  box-shadow: 0 0 0 3px #00b0f4, 0 0 20px rgba(0, 176, 244, 0.8);
-  animation: speak-pulse 1.2s infinite;
+.voice-stage-avatar.caller-c1-speaking {
+  box-shadow: 0 0 0 3.5px #f97316, 0 0 24px rgba(249, 115, 22, 0.9);
+  animation: speak-pulse-c1 1.2s infinite;
+}
+
+.voice-stage-avatar.caller-c2-speaking {
+  box-shadow: 0 0 0 3.5px #0ea5e9, 0 0 24px rgba(14, 165, 233, 0.9);
+  animation: speak-pulse-c2 1.2s infinite;
+}
+
+.voice-stage-avatar.caller-speaking, .voice-stage-avatar.caller-global-speaking {
+  box-shadow: 0 0 0 3.5px #a855f7, 0 0 24px rgba(168, 85, 247, 0.9);
+  animation: speak-pulse-global 1.2s infinite;
+}
+
+@keyframes speak-pulse-c1 {
+  0% { box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.9), 0 0 8px rgba(249, 115, 22, 0.6); }
+  50% { box-shadow: 0 0 0 4.5px rgba(249, 115, 22, 0.5), 0 0 20px rgba(249, 115, 22, 0.8); }
+  100% { box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.9), 0 0 8px rgba(249, 115, 22, 0.6); }
+}
+
+@keyframes speak-pulse-c2 {
+  0% { box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.9), 0 0 8px rgba(14, 165, 233, 0.6); }
+  50% { box-shadow: 0 0 0 4.5px rgba(14, 165, 233, 0.5), 0 0 20px rgba(14, 165, 233, 0.8); }
+  100% { box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.9), 0 0 8px rgba(14, 165, 233, 0.6); }
+}
+
+@keyframes speak-pulse-global {
+  0% { box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.9), 0 0 8px rgba(168, 85, 247, 0.6); }
+  50% { box-shadow: 0 0 0 4.5px rgba(168, 85, 247, 0.5), 0 0 20px rgba(168, 85, 247, 0.8); }
+  100% { box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.9), 0 0 8px rgba(168, 85, 247, 0.6); }
 }
 
 .voice-stage-nick {
-  font-size: 13px;
-  font-weight: 700;
-  color: #f2f3f5;
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  letter-spacing: 0.3px;
+}
+
+.voice-stage-nick.speaking {
+  color: #57F287 !important;
+  text-shadow: 0 0 8px rgba(87, 242, 135, 0.9), 0 0 16px rgba(87, 242, 135, 0.5);
 }
 
 .voice-stage-badges {

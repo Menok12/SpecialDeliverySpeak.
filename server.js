@@ -57,16 +57,16 @@ function setAppDownloadUrl(url) {
   }
 }
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 app.get('/api/version', (req, res) => {
   res.json({
     version: APP_VERSION,
     downloadUrl: getAppDownloadUrl(),
     features: [
-      'Visualizador de Nicks gigante con tarjetas destacadas',
-      'Menú contextual con clic derecho para silenciar y ajustar volumen',
-      'Rol de Caller con transmisión de voz a todos los canales'
+      'Visualizador de Nicks en Escenario de Voz y Tarjetas de Participantes',
+      'Roles de Caller separados: Caller Campo 1 y Caller Campo 2',
+      'Menú contextual con clic derecho para silenciar y cambiar roles'
     ]
   });
 });
@@ -223,6 +223,26 @@ const messages = {
   'text-memes': []
 };
 
+function getChannelCampo(channelId) {
+  if (!channelId) return null;
+  const ch = channels.find(c => c.id === channelId);
+  if (ch) {
+    if (ch.category === 'Campo 1' || ch.id.startsWith('c1-')) return 'c1';
+    if (ch.category === 'Campo 2' || ch.id.startsWith('c2-')) return 'c2';
+  }
+  if (channelId.startsWith('c1-')) return 'c1';
+  if (channelId.startsWith('c2-')) return 'c2';
+  return null;
+}
+
+function shouldCallerReachUser(callerUser, targetUser) {
+  if (!callerUser || !callerUser.isCaller || !targetUser || !targetUser.currentVoiceChannel) return false;
+  const role = callerUser.callerRole || 'global';
+  if (role === 'global') return true;
+  const targetCampo = getChannelCampo(targetUser.currentVoiceChannel);
+  return role === targetCampo;
+}
+
 function getVoiceChannelUsers(channelId) {
   const result = [];
   for (const [sId, u] of users.entries()) {
@@ -235,6 +255,7 @@ function getVoiceChannelUsers(channelId) {
         isAdmin: u.isAdmin,
         isMasterAdmin: u.isMasterAdmin,
         isCaller: !!u.isCaller,
+        callerRole: u.callerRole || (u.isCaller ? 'global' : null),
         isMuted: u.isMuted,
         isDeafened: u.isDeafened,
         isSpeaking: u.isSpeaking
@@ -273,6 +294,7 @@ function initializeSession(socket, userAccount) {
     isAdmin: !!userAccount.isAdmin,
     isMasterAdmin: !!userAccount.isMasterAdmin,
     isCaller: !!userAccount.isCaller,
+    callerRole: userAccount.callerRole || (userAccount.isCaller ? 'global' : null),
     ip: getClientIP(socket),
     currentVoiceChannel: null,
     isMuted: false,
@@ -406,6 +428,7 @@ io.on('connection', (socket) => {
       isAdmin,
       isMasterAdmin,
       isCaller: false,
+      callerRole: null,
       token: generateToken(),
       createdAt: new Date().toISOString()
     };
@@ -439,6 +462,7 @@ io.on('connection', (socket) => {
       isAdmin: false,
       isMasterAdmin: false,
       isCaller: false,
+      callerRole: null,
       ip: clientIP,
       currentVoiceChannel: null,
       isMuted: false,
@@ -638,35 +662,60 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 9c. Asignar o Remover Rol Caller (Transmisión Global)
-  socket.on('admin:set_caller', ({ targetSocketId, isCaller }) => {
+  // 9c. Asignar o Remover Rol Caller (Campo 1, Campo 2 o Global)
+  socket.on('admin:set_caller', ({ targetSocketId, role, isCaller }) => {
     if (!socket.user || (!socket.user.isAdmin && !socket.user.isMasterAdmin)) {
-      return socket.emit('error:permission', 'Solo un administrador puede asignar o remover el rol Caller.');
+      return socket.emit('error:permission', 'Solo un administrador puede asignar o remover roles de Caller.');
     }
 
     const targetUser = users.get(targetSocketId);
     if (!targetUser) return;
 
-    targetUser.isCaller = !!isCaller;
+    // Determinar nuevo rol ('c1', 'c2', 'global', o null)
+    let newRole = role;
+    if (!newRole) {
+      if (isCaller === true) newRole = 'global';
+      else if (isCaller === false) newRole = null;
+      else newRole = null;
+    }
+
+    if (newRole === 'c1' || newRole === 'c2' || newRole === 'global') {
+      targetUser.isCaller = true;
+      targetUser.callerRole = newRole;
+    } else {
+      targetUser.isCaller = false;
+      targetUser.callerRole = null;
+    }
 
     // Persistir rol Caller en accounts.json si la cuenta está registrada
     const accountKey = targetUser.username.toLowerCase();
     if (accounts[accountKey]) {
       accounts[accountKey].isCaller = targetUser.isCaller;
+      accounts[accountKey].callerRole = targetUser.callerRole;
       saveAccounts();
     }
 
     const targetSocket = io.sockets.sockets.get(targetSocketId);
     if (targetSocket) {
-      targetSocket.emit('user:caller_role_changed', { isCaller: targetUser.isCaller });
+      targetSocket.emit('user:caller_role_changed', {
+        isCaller: targetUser.isCaller,
+        callerRole: targetUser.callerRole
+      });
     }
 
     io.emit('user:updated', targetUser);
     io.emit('voice:state_update', getAllVoiceState());
 
-    const noticeText = isCaller
-      ? `📢⭐ ${socket.user.username} ha asignado el rol CALLER (Llamador Global) a ${targetUser.username}. ¡Cuando hable, se escuchará en todos los canales!`
-      : `📢 ${socket.user.username} ha removido el rol Caller a ${targetUser.username}.`;
+    let noticeText = '';
+    if (targetUser.callerRole === 'c1') {
+      noticeText = `📢⚔️ ${socket.user.username} ha asignado el rol CALLER CAMPO 1 a ${targetUser.username}. ¡Su voz se transmitirá a todas las Partys de Campo 1!`;
+    } else if (targetUser.callerRole === 'c2') {
+      noticeText = `📢🛡️ ${socket.user.username} ha asignado el rol CALLER CAMPO 2 a ${targetUser.username}. ¡Su voz se transmitirá a todas las Partys de Campo 2!`;
+    } else if (targetUser.callerRole === 'global') {
+      noticeText = `📢⚡ ${socket.user.username} ha asignado el rol CALLER GLOBAL a ${targetUser.username}. ¡Su voz se transmitirá a todos los canales!`;
+    } else {
+      noticeText = `📢 ${socket.user.username} ha removido el rol de Caller a ${targetUser.username}.`;
+    }
 
     const notice = {
       id: `sys-${Date.now()}`,
@@ -796,26 +845,36 @@ io.on('connection', (socket) => {
       user: u
     }));
 
-    // 2. Transmisión Global para Caller:
-    // Si quien entra es Caller, conectarlo a TODOS los usuarios en TODOS los canales de voz
+    // 2. Transmisión para Callers (Campo 1, Campo 2 o Global):
     if (socket.user.isCaller) {
       for (const [sId, u] of users.entries()) {
         if (u.currentVoiceChannel && u.currentVoiceChannel !== channelId && sId !== socket.id) {
-          existingPeers.push({ socketId: sId, user: u, isGlobalCallerPeer: true });
-          const remSocket = io.sockets.sockets.get(sId);
-          if (remSocket) {
-            remSocket.emit('voice:caller_broadcasting', {
-              socketId: socket.id,
-              user: socket.user
-            });
+          if (shouldCallerReachUser(socket.user, u)) {
+            existingPeers.push({ socketId: sId, user: u, isCallerBroadcast: true });
+            const remSocket = io.sockets.sockets.get(sId);
+            if (remSocket) {
+              remSocket.emit('voice:peer_joined', {
+                socketId: socket.id,
+                user: socket.user
+              });
+            }
           }
         }
       }
     } else {
-      // Si quien entra NO es Caller, verificar si hay un Caller activo en otro canal para conectarlo
+      // Si quien entra NO es Caller, conectar con Callers activos cuyo ámbito coincida
       for (const [sId, u] of users.entries()) {
         if (u.isCaller && u.currentVoiceChannel && u.currentVoiceChannel !== channelId && sId !== socket.id) {
-          existingPeers.push({ socketId: sId, user: u, isCallerBroadcast: true });
+          if (shouldCallerReachUser(u, socket.user)) {
+            existingPeers.push({ socketId: sId, user: u, isCallerBroadcast: true });
+            const remSocket = io.sockets.sockets.get(sId);
+            if (remSocket) {
+              remSocket.emit('voice:peer_joined', {
+                socketId: socket.id,
+                user: socket.user
+              });
+            }
+          }
         }
       }
     }
@@ -867,18 +926,30 @@ io.on('connection', (socket) => {
     if (!socket.user || !socket.user.currentVoiceChannel) return;
     socket.user.isSpeaking = !!isSpeaking;
 
-    if (socket.user.isCaller) {
-      // Si el Caller habla, emitir a TODOS los usuarios conectados para efecto global
-      io.emit('voice:user_speaking', {
-        socketId: socket.id,
-        isSpeaking: socket.user.isSpeaking,
-        isCaller: true,
-        username: socket.user.username
-      });
+    const role = socket.user.callerRole || (socket.user.isCaller ? 'global' : null);
+
+    if (socket.user.isCaller && role) {
+      // Emitir evento de habla solo a los sockets dentro del alcance del Caller
+      for (const [sId, u] of users.entries()) {
+        const targetSocket = io.sockets.sockets.get(sId);
+        if (!targetSocket) continue;
+
+        if (sId === socket.id || shouldCallerReachUser(socket.user, u) || (u.currentVoiceChannel === socket.user.currentVoiceChannel)) {
+          targetSocket.emit('voice:user_speaking', {
+            socketId: socket.id,
+            isSpeaking: socket.user.isSpeaking,
+            isCaller: true,
+            callerRole: role,
+            username: socket.user.username
+          });
+        }
+      }
     } else {
       io.to(`voice:${socket.user.currentVoiceChannel}`).emit('voice:user_speaking', {
         socketId: socket.id,
-        isSpeaking: socket.user.isSpeaking
+        isSpeaking: socket.user.isSpeaking,
+        isCaller: false,
+        username: socket.user.username
       });
     }
   });
@@ -918,6 +989,7 @@ io.on('connection', (socket) => {
       isAdmin: socket.user.isAdmin,
       isMasterAdmin: socket.user.isMasterAdmin,
       isCaller: !!socket.user.isCaller,
+      callerRole: socket.user.callerRole || null,
       text: cleanText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };

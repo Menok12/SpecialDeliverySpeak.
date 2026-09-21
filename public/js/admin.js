@@ -298,12 +298,20 @@ class AdminManager {
     this.socket.emit('admin:unmute_user', { targetSocketId: socketId });
   }
 
-  setCallerUser(socketId, username, isCaller) {
+  setCallerRole(socketId, username, role) {
     if (!this.isAdmin && !this.isMasterAdmin) return;
-    const actionText = isCaller ? 'asignar el rol de CALLER (Transmisión Global a todos los canales)' : 'remover el rol de Caller';
+    let actionText = 'remover el rol de Caller';
+    if (role === 'c1') actionText = 'asignar el rol de CALLER CAMPO 1 (Transmisión a todas las Partys de Campo 1)';
+    else if (role === 'c2') actionText = 'asignar el rol de CALLER CAMPO 2 (Transmisión a todas las Partys de Campo 2)';
+    else if (role === 'global') actionText = 'asignar el rol de CALLER GLOBAL (Transmisión a todos los canales)';
+
     if (confirm(`¿Deseas ${actionText} a "${username}"?`)) {
-      this.socket.emit('admin:set_caller', { targetSocketId: socketId, isCaller });
+      this.socket.emit('admin:set_caller', { targetSocketId: socketId, role });
     }
+  }
+
+  setCallerUser(socketId, username, isCaller) {
+    this.setCallerRole(socketId, username, isCaller ? 'global' : null);
   }
 
   kickVoiceUser(socketId, username) {

@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let messagesByChannel = {};
 
   // ===================== SISTEMA DE ACTUALIZACIÓN EN VIVO =====================
-  const CURRENT_APP_VERSION = '1.1.0';
+  const CURRENT_APP_VERSION = '1.2.0';
   let isUpdateBannerDismissed = false;
 
   const updateBanner = document.getElementById('update-notification-banner');
@@ -591,6 +591,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateUserDock();
     renderChannelsList();
     renderMembersList();
+    renderVoiceStage();
 
     const defaultChan = channels.find(c => c.type === 'text');
     if (defaultChan) {
@@ -612,12 +613,14 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.on('user:joined', (user) => {
     members.set(user.id, user);
     renderMembersList();
+    renderVoiceStage();
   });
 
   socket.on('user:left', ({ socketId }) => {
     members.delete(socketId);
     renderMembersList();
     renderChannelsList();
+    renderVoiceStage();
   });
 
   socket.on('user:updated', (updatedUser) => {
@@ -628,6 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderMembersList();
     renderChannelsList();
+    renderVoiceStage();
   });
 
   socket.on('channel:created', (newChannel) => {
@@ -656,14 +660,30 @@ document.addEventListener('DOMContentLoaded', () => {
     renderVoiceStage();
   });
 
-  // ILUMINACIÓN EN VERDE NEÓN (O CIAN SI ES CALLER) AL HABLAR
-  socket.on('voice:user_speaking', ({ socketId, isSpeaking, isCaller, username }) => {
-    // Banner global en pantalla si habla un Caller
+  // ILUMINACIÓN EN VERDE NEÓN (O COLOR ESPECIAL DE CALLER) AL HABLAR
+  socket.on('voice:user_speaking', ({ socketId, isSpeaking, isCaller, callerRole, username }) => {
+    // Banner en pantalla si habla un Caller
     const callerBanner = document.getElementById('caller-broadcast-banner');
     const callerBannerName = document.getElementById('caller-banner-name');
+    const callerBannerTarget = document.getElementById('caller-banner-target');
+    const callerAnimIcon = document.getElementById('caller-anim-icon');
+
     if (callerBanner && callerBannerName) {
       if (isCaller && isSpeaking) {
         callerBannerName.textContent = username || 'Caller';
+        if (callerRole === 'c1') {
+          if (callerAnimIcon) callerAnimIcon.textContent = '📢⚔️';
+          if (callerBannerTarget) callerBannerTarget.textContent = 'todas las Partys de Campo 1';
+          callerBanner.className = 'caller-broadcast-banner caller-c1-banner';
+        } else if (callerRole === 'c2') {
+          if (callerAnimIcon) callerAnimIcon.textContent = '📢🛡️';
+          if (callerBannerTarget) callerBannerTarget.textContent = 'todas las Partys de Campo 2';
+          callerBanner.className = 'caller-broadcast-banner caller-c2-banner';
+        } else {
+          if (callerAnimIcon) callerAnimIcon.textContent = '📢⚡';
+          if (callerBannerTarget) callerBannerTarget.textContent = 'todos los canales (Global)';
+          callerBanner.className = 'caller-broadcast-banner caller-global-banner';
+        }
         callerBanner.classList.remove('hidden');
       } else if (isCaller && !isSpeaking) {
         callerBanner.classList.add('hidden');
@@ -673,10 +693,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Iluminar avatar en canal de voz y voice-stage
     const avatarEls = document.querySelectorAll(`[data-voice-avatar-socket="${socketId}"]`);
     avatarEls.forEach(el => {
+      el.classList.remove('speaking', 'caller-speaking', 'caller-c1-speaking', 'caller-c2-speaking', 'caller-global-speaking');
       if (isSpeaking) {
-        el.classList.add(isCaller ? 'caller-speaking' : 'speaking');
-      } else {
-        el.classList.remove('speaking', 'caller-speaking');
+        if (callerRole === 'c1') el.classList.add('caller-c1-speaking');
+        else if (callerRole === 'c2') el.classList.add('caller-c2-speaking');
+        else if (callerRole === 'global' || isCaller) el.classList.add('caller-global-speaking');
+        else el.classList.add('speaking');
       }
     });
 
@@ -962,8 +984,12 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (u.isAdmin) {
               name.innerHTML += ' 👑';
             }
-            if (u.isCaller) {
-              name.innerHTML += ' 📢';
+            if (u.callerRole === 'c1') {
+              name.innerHTML += ' <span class="badge-role-inline c1">📢⚔️ C1</span>';
+            } else if (u.callerRole === 'c2') {
+              name.innerHTML += ' <span class="badge-role-inline c2">📢🛡️ C2</span>';
+            } else if (u.callerRole === 'global' || u.isCaller) {
+              name.innerHTML += ' <span class="badge-role-inline global">📢⚡ Global</span>';
             }
 
             const statusIcons = document.createElement('div');
@@ -1260,11 +1286,23 @@ document.addEventListener('DOMContentLoaded', () => {
           nameRow.appendChild(crown);
         }
 
-        if (u.isCaller) {
+        if (u.callerRole === 'c1') {
           const callerCrown = document.createElement('span');
-          callerCrown.className = 'caller-badge-crown';
-          callerCrown.textContent = ' 📢';
-          callerCrown.title = 'Rol: Caller (Transmisión Global a todos los canales)';
+          callerCrown.className = 'caller-badge-crown caller-c1';
+          callerCrown.textContent = ' 📢⚔️ [Caller C1]';
+          callerCrown.title = 'Rol: Caller Campo 1 (Transmisión a todas las Partys de Campo 1)';
+          nameRow.appendChild(callerCrown);
+        } else if (u.callerRole === 'c2') {
+          const callerCrown = document.createElement('span');
+          callerCrown.className = 'caller-badge-crown caller-c2';
+          callerCrown.textContent = ' 📢🛡️ [Caller C2]';
+          callerCrown.title = 'Rol: Caller Campo 2 (Transmisión a todas las Partys de Campo 2)';
+          nameRow.appendChild(callerCrown);
+        } else if (u.callerRole === 'global' || u.isCaller) {
+          const callerCrown = document.createElement('span');
+          callerCrown.className = 'caller-badge-crown caller-global';
+          callerCrown.textContent = ' 📢⚡ [Caller Global]';
+          callerCrown.title = 'Rol: Caller Global (Transmisión a todos los canales)';
           nameRow.appendChild(callerCrown);
         }
 
@@ -1492,23 +1530,32 @@ document.addEventListener('DOMContentLoaded', () => {
       if (u.isDeafened) statusIcons.innerHTML += '🔇';
       card.appendChild(statusIcons);
 
+      // Determinar clase de animación al hablar
+      let speakingClass = '';
+      if (u.isSpeaking) {
+        if (u.callerRole === 'c1') speakingClass = 'caller-c1-speaking';
+        else if (u.callerRole === 'c2') speakingClass = 'caller-c2-speaking';
+        else if (u.callerRole === 'global' || u.isCaller) speakingClass = 'caller-global-speaking';
+        else speakingClass = 'speaking';
+      }
+
       // Avatar con aro de habla dinámico
       const avatar = document.createElement('div');
-      avatar.className = `voice-stage-avatar ${u.isSpeaking ? (u.isCaller ? 'caller-speaking' : 'speaking') : ''}`;
+      avatar.className = `voice-stage-avatar ${speakingClass}`;
       avatar.dataset.voiceAvatarSocket = u.id;
       avatar.textContent = u.avatar || '📦';
       avatar.style.backgroundColor = (u.color || '#5865F2') + '33';
       card.appendChild(avatar);
 
-      // Nickname (Grande y claramente visible)
+      // Nickname (Grande, en negrita y claramente visible)
       const name = document.createElement('div');
       name.className = `voice-stage-nick ${u.isSpeaking ? 'speaking' : ''}`;
       name.dataset.voiceNameSocket = u.id;
       name.textContent = u.username;
-      name.style.color = u.color || '#f2f3f5';
+      name.style.color = u.color || '#ffffff';
       card.appendChild(name);
 
-      // Badges
+      // Badges de Roles
       const badges = document.createElement('div');
       badges.className = 'voice-stage-badges';
       if (u.isMasterAdmin) {
@@ -1524,15 +1571,69 @@ document.addEventListener('DOMContentLoaded', () => {
         b.textContent = '👑 ADMIN';
         badges.appendChild(b);
       }
-      if (u.isCaller) {
+      if (u.callerRole === 'c1') {
         const b = document.createElement('span');
-        b.className = 'caller-badge';
-        b.textContent = '📢 CALLER';
+        b.className = 'caller-badge caller-badge-c1';
+        b.textContent = '📢⚔️ CALLER C1';
+        badges.appendChild(b);
+      } else if (u.callerRole === 'c2') {
+        const b = document.createElement('span');
+        b.className = 'caller-badge caller-badge-c2';
+        b.textContent = '📢🛡️ CALLER C2';
+        badges.appendChild(b);
+      } else if (u.callerRole === 'global' || u.isCaller) {
+        const b = document.createElement('span');
+        b.className = 'caller-badge caller-badge-global';
+        b.textContent = '📢⚡ CALLER GLOBAL';
         badges.appendChild(b);
       }
       card.appendChild(badges);
 
-      // Clic derecho para menú contextual
+      // Slider de volumen individual directo en la tarjeta del compañero
+      if (u.id !== socket.id) {
+        const volWrap = document.createElement('div');
+        volWrap.className = 'stage-vol-wrap';
+        volWrap.style.marginTop = '6px';
+        volWrap.style.display = 'flex';
+        volWrap.style.alignItems = 'center';
+        volWrap.style.gap = '4px';
+
+        const volIcon = document.createElement('span');
+        volIcon.textContent = '🔊';
+        volIcon.style.fontSize = '10px';
+
+        const volSlider = document.createElement('input');
+        volSlider.type = 'range';
+        volSlider.min = '0';
+        volSlider.max = '2';
+        volSlider.step = '0.05';
+        volSlider.value = voiceEngine.getUserVolume(u.id);
+        volSlider.style.width = '55px';
+        volSlider.style.height = '4px';
+        volSlider.style.cursor = 'pointer';
+        volSlider.style.accentColor = '#5865F2';
+
+        const volVal = document.createElement('span');
+        volVal.textContent = `${Math.round(volSlider.value * 100)}%`;
+        volVal.style.fontSize = '10px';
+        volVal.style.color = '#949ba4';
+
+        volSlider.addEventListener('input', (ev) => {
+          ev.stopPropagation();
+          const v = parseFloat(volSlider.value);
+          voiceEngine.setUserVolume(u.id, v);
+          volVal.textContent = `${Math.round(v * 100)}%`;
+        });
+
+        volSlider.addEventListener('click', (ev) => ev.stopPropagation());
+
+        volWrap.appendChild(volIcon);
+        volWrap.appendChild(volSlider);
+        volWrap.appendChild(volVal);
+        card.appendChild(volWrap);
+      }
+
+      // Clic derecho para menú contextual completo
       card.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         openContextMenu(e, u, u.id);
@@ -1555,8 +1656,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const ctxBtnMute = document.getElementById('ctx-btn-mute');
   const ctxMuteIcon = document.getElementById('ctx-mute-icon');
   const ctxMuteText = document.getElementById('ctx-mute-text');
-  const ctxBtnCaller = document.getElementById('ctx-btn-caller');
-  const ctxCallerText = document.getElementById('ctx-caller-text');
+  const ctxBtnCallerC1 = document.getElementById('ctx-btn-caller-c1');
+  const ctxCallerC1Text = document.getElementById('ctx-caller-c1-text');
+  const ctxBtnCallerC2 = document.getElementById('ctx-btn-caller-c2');
+  const ctxCallerC2Text = document.getElementById('ctx-caller-c2-text');
+  const ctxBtnCallerGlobal = document.getElementById('ctx-btn-caller-global');
+  const ctxCallerGlobalText = document.getElementById('ctx-caller-global-text');
   const ctxBtnPromote = document.getElementById('ctx-btn-promote');
   const ctxPromoteText = document.getElementById('ctx-promote-text');
   const ctxBtnKickVoice = document.getElementById('ctx-btn-kick-voice');
@@ -1587,7 +1692,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (ctxUserRole) {
       let roleDesc = userObj.isMasterAdmin ? '👑⭐ Super Admin' : (userObj.isAdmin ? '👑 Administrador' : 'Miembro');
-      if (userObj.isCaller) roleDesc += ' • 📢 Caller';
+      if (userObj.callerRole === 'c1') roleDesc += ' • 📢⚔️ Caller Campo 1';
+      else if (userObj.callerRole === 'c2') roleDesc += ' • 📢🛡️ Caller Campo 2';
+      else if (userObj.callerRole === 'global' || userObj.isCaller) roleDesc += ' • 📢⚡ Caller Global';
       ctxUserRole.textContent = roleDesc;
     }
 
@@ -1619,13 +1726,29 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Botón Asignar / Quitar Caller
-    if (ctxBtnCaller) {
+    // Botones Asignar / Quitar Caller por Campo
+    if (ctxBtnCallerC1) {
       if (hasAdmin && !isSelf) {
-        ctxBtnCaller.style.display = 'flex';
-        ctxCallerText.textContent = userObj.isCaller ? 'Quitar Rol Caller' : 'Asignar Rol: CALLER (Voz Global)';
+        ctxBtnCallerC1.style.display = 'flex';
+        ctxCallerC1Text.textContent = userObj.callerRole === 'c1' ? 'Quitar Caller Campo 1' : 'Asignar: CALLER CAMPO 1';
       } else {
-        ctxBtnCaller.style.display = 'none';
+        ctxBtnCallerC1.style.display = 'none';
+      }
+    }
+    if (ctxBtnCallerC2) {
+      if (hasAdmin && !isSelf) {
+        ctxBtnCallerC2.style.display = 'flex';
+        ctxCallerC2Text.textContent = userObj.callerRole === 'c2' ? 'Quitar Caller Campo 2' : 'Asignar: CALLER CAMPO 2';
+      } else {
+        ctxBtnCallerC2.style.display = 'none';
+      }
+    }
+    if (ctxBtnCallerGlobal) {
+      if (hasAdmin && !isSelf) {
+        ctxBtnCallerGlobal.style.display = 'flex';
+        ctxCallerGlobalText.textContent = (userObj.callerRole === 'global' || (!userObj.callerRole && userObj.isCaller)) ? 'Quitar Caller Global' : 'Asignar: CALLER GLOBAL (Todos)';
+      } else {
+        ctxBtnCallerGlobal.style.display = 'none';
       }
     }
 
@@ -1653,8 +1776,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Mostrar y posicionar menú adaptado a pantalla
     contextMenu.classList.remove('hidden');
-    const menuWidth = 230;
-    const menuHeight = 280;
+    const menuWidth = 240;
+    const menuHeight = 320;
     let posX = e.clientX;
     let posY = e.clientY;
 
@@ -1710,10 +1833,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (ctxBtnCaller) {
-    ctxBtnCaller.addEventListener('click', () => {
+  if (ctxBtnCallerC1) {
+    ctxBtnCallerC1.addEventListener('click', () => {
       if (!activeCtxUser || !activeCtxSocketId) return;
-      adminManager.setCallerUser(activeCtxSocketId, activeCtxUser.username, !activeCtxUser.isCaller);
+      adminManager.setCallerRole(activeCtxSocketId, activeCtxUser.username, activeCtxUser.callerRole === 'c1' ? null : 'c1');
+      closeContextMenu();
+    });
+  }
+
+  if (ctxBtnCallerC2) {
+    ctxBtnCallerC2.addEventListener('click', () => {
+      if (!activeCtxUser || !activeCtxSocketId) return;
+      adminManager.setCallerRole(activeCtxSocketId, activeCtxUser.username, activeCtxUser.callerRole === 'c2' ? null : 'c2');
+      closeContextMenu();
+    });
+  }
+
+  if (ctxBtnCallerGlobal) {
+    ctxBtnCallerGlobal.addEventListener('click', () => {
+      if (!activeCtxUser || !activeCtxSocketId) return;
+      adminManager.setCallerRole(activeCtxSocketId, activeCtxUser.username, activeCtxUser.callerRole === 'global' ? null : 'global');
       closeContextMenu();
     });
   }
