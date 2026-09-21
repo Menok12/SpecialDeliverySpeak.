@@ -248,19 +248,26 @@ class VoiceEngine {
         baseAudio.deviceId = { exact: this.selectedDeviceId };
       }
 
+      const getUserMediaWithTimeout = (constraints, ms = 2500) => {
+        return Promise.race([
+          navigator.mediaDevices.getUserMedia(constraints),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de micrófono')), ms))
+        ]);
+      };
+
       // Intento 1: Con cancelación de eco y mejoras
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        stream = await getUserMediaWithTimeout({
           audio: baseAudio,
           video: false
-        });
+        }, 2500);
       } catch (errAdv) {
-        console.warn('[Microphone] Filtros avanzados no admitidos por el driver, intentando audio directo:', errAdv);
-        // Intento 2: Fallback simple a audio puro
-        stream = await navigator.mediaDevices.getUserMedia({
+        console.warn('[Microphone] Filtros avanzados no admitidos, intentando audio directo:', errAdv);
+        // Intento 2: Fallback simple a audio puro con timeout
+        stream = await getUserMediaWithTimeout({
           audio: this.selectedDeviceId ? { deviceId: { exact: this.selectedDeviceId } } : true,
           video: false
-        });
+        }, 2000);
       }
 
       this.rawStream = stream;
@@ -618,14 +625,16 @@ class VoiceEngine {
   // ===================== UNIRSE Y SALIR =====================
 
   async joinVoiceChannel(channelId, channelName) {
-    if (this.currentChannelId === channelId) return;
-
     try {
-      await this.initLocalMicrophone();
+      const micPromise = this.initLocalMicrophone();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Mic init timeout')), 2500)
+      );
+      await Promise.race([micPromise, timeoutPromise]);
       this.isListenerMode = false;
       this.isMuted = false;
     } catch (e) {
-      console.warn('Entrando en modo solo escucha.', e);
+      console.warn('Entrando en modo solo escucha:', e);
       this.isListenerMode = true;
       this.isMuted = true;
       const btnMic = document.getElementById('btn-toggle-mic');
@@ -637,7 +646,7 @@ class VoiceEngine {
       }
     }
 
-    if (this.currentChannelId) {
+    if (this.currentChannelId && this.currentChannelId !== channelId) {
       this.leaveVoiceChannel(false);
     }
 
@@ -676,9 +685,37 @@ class VoiceEngine {
   // ===================== WEBRTC SIGNALING =====================
 
   setupSocketListeners() {
-    this.socket.on('voice:joined_success', async ({ channelId, peers }) => {
-      for (const peer of peers) {
-        await this.createPeerConnection(peer.socketId, true);
+    this.socket.on('disconnect', () => {
+      this.currentChannelId = null;
+      this.currentChannelName = '';
+      this.updateUIStatus(false);
+    });
+
+    this.socket.on('init:state', (data) => {
+      if (data && data.user) {
+        if (!data.user.currentVoiceChannel) {
+          this.currentChannelId = null;
+          this.currentChannelName = '';
+          this.updateUIStatus(false);
+        } else {
+          this.currentChannelId = data.user.currentVoiceChannel;
+          this.updateUIStatus(true);
+        }
+      }
+    });
+
+    this.socket.on('voice:forced_move', ({ channelId, channelName }) => {
+      this.joinVoiceChannel(channelId, channelName);
+    });
+
+    this.socket.on('voice:joined_success', async ({ channelId, channelName, peers }) => {
+      this.currentChannelId = channelId;
+      if (channelName) this.currentChannelName = channelName;
+      this.updateUIStatus(true);
+      if (Array.isArray(peers)) {
+        for (const peer of peers) {
+          await this.createPeerConnection(peer.socketId, true);
+        }
       }
     });
 
