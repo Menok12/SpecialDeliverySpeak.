@@ -200,6 +200,7 @@ function generateToken() {
 let channels = loadChannels();
 saveChannels();
 
+const { ips: bannedIPs, users: bannedUsers } = loadBans();
 let accounts = loadAccounts();
 
 // Garantizar privilegios de Administrador Maestro permanente a elbolas y progamer2026
